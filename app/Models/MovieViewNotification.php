@@ -9,6 +9,7 @@ class MovieViewNotification extends Model
 {
     protected $fillable = [
         'movie_id',
+        'izisobanuye_movie_id',
         'movie_title',
         'previous_view_count',
         'new_view_count',
@@ -29,6 +30,11 @@ class MovieViewNotification extends Model
     public function movie(): BelongsTo
     {
         return $this->belongsTo(Movie::class);
+    }
+
+    public function izisobanuyeMovie(): BelongsTo
+    {
+        return $this->belongsTo(IzisobanuyeMovie::class, 'izisobanuye_movie_id');
     }
 
     public function scopeUnread($query)

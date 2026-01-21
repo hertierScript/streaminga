@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Movie;
+use App\Models\IzisobanuyeMovie;
 use App\Models\MovieViewNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -104,6 +105,53 @@ class MovieController extends Controller
 
     public function details($id)
     {
+        // First, try to get izisobanuye movie from database
+        $izisobanuyeMovie = IzisobanuyeMovie::find($id);
+
+        if ($izisobanuyeMovie) {
+            // This is an izisobanuye movie
+            $movie = [
+                'id' => $izisobanuyeMovie->id,
+                'title' => $izisobanuyeMovie->title,
+                'poster' => $izisobanuyeMovie->poster_file_path ?: ($izisobanuyeMovie->poster_path ? 'https://image.tmdb.org/t/p/w500' . $izisobanuyeMovie->poster_path : '/Images/default-movie.jpg'),
+                'rating' => $izisobanuyeMovie->rating,
+                'genre' => $izisobanuyeMovie->genres ?? [],
+                'description' => $izisobanuyeMovie->description,
+                'releaseYear' => $izisobanuyeMovie->release_year,
+                'duration' => $izisobanuyeMovie->duration,
+                'interpreter' => $izisobanuyeMovie->interpreter,
+                'trailer' => $izisobanuyeMovie->trailer_url,
+                'poster_file_path' => $izisobanuyeMovie->poster_file_path,
+                'movie_file_path' => $izisobanuyeMovie->movie_file_path,
+            ];
+
+            return Inertia::render('izisobanuye-movie-details', ['movie' => $movie]);
+        }
+
+        // Then, try to get movie from database (for TMDB movies)
+        $movieRecord = Movie::where('tmdb_id', $id)->first();
+
+        if ($movieRecord) {
+            // This is a TMDB movie stored in database
+            $movie = [
+                'id' => $movieRecord->tmdb_id,
+                'title' => $movieRecord->title,
+                'poster' => $movieRecord->poster_file_path ?: ($movieRecord->poster_path ? 'https://image.tmdb.org/t/p/w500' . $movieRecord->poster_path : '/Images/default-movie.jpg'),
+                'rating' => $movieRecord->rating,
+                'genre' => $movieRecord->genres ?? [],
+                'description' => $movieRecord->description,
+                'releaseYear' => $movieRecord->release_year,
+                'duration' => $movieRecord->duration,
+                'interpreter' => $movieRecord->interpreter,
+                'trailer' => $movieRecord->trailer_url,
+                'poster_file_path' => $movieRecord->poster_file_path,
+                'movie_file_path' => $movieRecord->movie_file_path,
+            ];
+
+            return Inertia::render('movie-details', ['movie' => $movie]);
+        }
+
+        // If not in database, try to fetch from TMDB API and store in database
         $cacheKey = "tmdb_movie_details_{$id}";
         $movieData = Cache::remember($cacheKey, 3600, function () use ($id) {
             $apiKey = config('services.tmdb.key');
@@ -123,7 +171,7 @@ class MovieController extends Controller
             $movie = [
                 'id' => $movieData['id'],
                 'title' => $movieData['title'],
-                'poster' => $movieData['poster_path'] ? 'https://image.tmdb.org/t/p/w500' . $movieData['poster_path'] : null,
+                'poster' => $movieData['poster_path'] ? 'https://image.tmdb.org/t/p/w500' . $movieData['poster_path'] : '/Images/default-movie.jpg',
                 'rating' => $movieData['vote_average'],
                 'genre' => collect($movieData['genres'])->pluck('name')->toArray(),
                 'description' => $movieData['overview'],
@@ -133,7 +181,36 @@ class MovieController extends Controller
                 'trailer' => $trailerUrl,
             ];
 
+            // Store movie in database asynchronously for faster future access
+            dispatch(function () use ($id) {
+                $this->storeMovieFromTMDB($id);
+            })->afterResponse();
+
             return Inertia::render('movie-details', ['movie' => $movie]);
+        }
+
+        abort(404);
+    }
+
+    public function staticMovieDetails($id)
+    {
+        // Load static movies data
+        $staticMovies = [
+            1 => ['id' => 1, 'title' => 'Inception', 'poster' => '/Images/back_in_action.jpg', 'rating' => 8.8, 'genre' => ['Action', 'Sci-Fi', 'Thriller'], 'description' => 'A thief who steals corporate secrets through the use of dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O.', 'releaseYear' => 2010, 'duration' => 148, 'interpreter' => 'Christopher Nolan', 'trailer' => null, 'category' => 'Movie'],
+            2 => ['id' => 2, 'title' => 'The Dark Knight', 'poster' => '/Images/beauty_in_black.jpg', 'rating' => 9.0, 'genre' => ['Action', 'Crime', 'Drama'], 'description' => 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.', 'releaseYear' => 2008, 'duration' => 152, 'interpreter' => 'Christopher Nolan', 'trailer' => null, 'category' => 'Movie'],
+            3 => ['id' => 3, 'title' => 'Interstellar', 'poster' => '/Images/forty_seven_ronin.jpg', 'rating' => 8.6, 'genre' => ['Adventure', 'Drama', 'Sci-Fi'], 'description' => 'A team of explorers travel through a wormhole in space in an attempt to ensure humanity\'s survival.', 'releaseYear' => 2014, 'duration' => 169, 'interpreter' => 'Christopher Nolan', 'trailer' => null, 'category' => 'Movie'],
+            4 => ['id' => 4, 'title' => 'The Matrix', 'poster' => '/Images/man_from_toronto.jpg', 'rating' => 8.7, 'genre' => ['Action', 'Sci-Fi'], 'description' => 'A computer hacker learns from mysterious rebels about the true nature of his reality and his role in the war against its controllers.', 'releaseYear' => 1999, 'duration' => 136, 'interpreter' => 'Wachowski Sisters', 'trailer' => null, 'category' => 'Movie'],
+            5 => ['id' => 5, 'title' => 'Avengers: Endgame', 'poster' => '/Images/sinners_ver4.jpg', 'rating' => 8.4, 'genre' => ['Action', 'Adventure', 'Drama'], 'description' => 'After the devastating events of Avengers: Infinity War, the universe is in ruins.', 'releaseYear' => 2019, 'duration' => 181, 'interpreter' => 'Anthony Russo & Joe Russo', 'trailer' => null, 'category' => 'Movie'],
+            6 => ['id' => 6, 'title' => 'Dune: Part Two', 'poster' => '/Images/vikings.jpg', 'rating' => 8.5, 'genre' => ['Action', 'Adventure', 'Drama'], 'description' => 'Paul Atreides unites with Chani and the Fremen while on a path of revenge against the conspirators who destroyed his family.', 'releaseYear' => 2024, 'duration' => 166, 'interpreter' => 'Denis Villeneuve', 'trailer' => null, 'category' => 'Movie'],
+            7 => ['id' => 7, 'title' => 'Oppenheimer', 'poster' => '/Images/back_in_action.jpg', 'rating' => 8.3, 'genre' => ['Biography', 'Drama', 'History'], 'description' => 'The story of American scientist J. Robert Oppenheimer and his role in the development of the atomic bomb.', 'releaseYear' => 2023, 'duration' => 180, 'interpreter' => 'Christopher Nolan', 'trailer' => null, 'category' => 'Movie'],
+            8 => ['id' => 8, 'title' => 'Barbie', 'poster' => '/Images/beauty_in_black.jpg', 'rating' => 6.9, 'genre' => ['Adventure', 'Comedy', 'Fantasy'], 'description' => 'Barbie and Ken are having the time of their lives in the colorful and seemingly perfect world of Barbie Land.', 'releaseYear' => 2023, 'duration' => 114, 'interpreter' => 'Greta Gerwig', 'trailer' => null, 'category' => 'Movie'],
+            9 => ['id' => 9, 'title' => 'Poor Things', 'poster' => '/Images/forty_seven_ronin.jpg', 'rating' => 8.1, 'genre' => ['Comedy', 'Drama', 'Romance'], 'description' => 'The incredible tale about the fantastical evolution of Bella Baxter, a young woman brought back to life by the brilliant and unorthodox scientist Dr. Godwin Baxter.', 'releaseYear' => 2023, 'duration' => 141, 'interpreter' => 'Yorgos Lanthimos', 'trailer' => null, 'category' => 'Movie'],
+            10 => ['id' => 10, 'title' => 'The Holdovers', 'poster' => '/Images/man_from_toronto.jpg', 'rating' => 8.0, 'genre' => ['Comedy', 'Drama'], 'description' => 'A curmudgeonly instructor at a New England prep school is forced to remain on campus during Christmas break to babysit the handful of students with nowhere to go.', 'releaseYear' => 2023, 'duration' => 133, 'interpreter' => 'Alexander Payne', 'trailer' => null, 'category' => 'Movie'],
+            // Add more as needed...
+        ];
+
+        if (isset($staticMovies[$id])) {
+            return Inertia::render('movie-details', ['movie' => $staticMovies[$id]]);
         }
 
         abort(404);
@@ -215,7 +292,7 @@ class MovieController extends Controller
         }
 
         // Pagination
-        $perPage = $request->get('per_page', 20);
+        $perPage = $request->get('per_page', 100);
         return $query->paginate($perPage);
     }
 
@@ -279,14 +356,58 @@ class MovieController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function incrementViewCount($tmdbId)
+    public function incrementViewCount($id)
     {
-        $movie = Movie::where('tmdb_id', $tmdbId)->first();
+        // First check if it's an izisobanuye movie
+        $izisobanuyeMovie = IzisobanuyeMovie::find($id);
+
+        if ($izisobanuyeMovie) {
+            $watchDuration = request()->input('watch_duration');
+
+            if ($watchDuration) {
+                // Update existing notification with duration
+                $notification = MovieViewNotification::where('izisobanuye_movie_id', $izisobanuyeMovie->id)
+                    ->where('ip_address', request()->ip())
+                    ->whereNull('watch_duration')
+                    ->latest()
+                    ->first();
+
+                if ($notification) {
+                    $notification->update(['watch_duration' => $watchDuration]);
+                    return response()->json(['success' => true]);
+                }
+            } else {
+                // Increment view count and create notification
+                $previousCount = $izisobanuyeMovie->view_count;
+                $izisobanuyeMovie->increment('view_count');
+                $newCount = $izisobanuyeMovie->view_count;
+
+                // Create notification for admin
+                MovieViewNotification::create([
+                    'izisobanuye_movie_id' => $izisobanuyeMovie->id,
+                    'movie_title' => $izisobanuyeMovie->title,
+                    'previous_view_count' => $previousCount,
+                    'new_view_count' => $newCount,
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'metadata' => [
+                        'referrer' => request()->header('referer'),
+                        'timestamp' => now()->toISOString(),
+                    ],
+                    'watch_duration' => $watchDuration,
+                ]);
+            }
+
+            return response()->json(['success' => true]);
+        }
+
+        // Handle TMDB movies
+        $movie = Movie::where('tmdb_id', $id)->first();
 
         if (!$movie) {
             // Create movie record if it doesn't exist
-            $this->storeMovieFromTMDB($tmdbId);
-            $movie = Movie::where('tmdb_id', $tmdbId)->first();
+            $this->storeMovieFromTMDB($id);
+            $movie = Movie::where('tmdb_id', $id)->first();
         }
 
         if ($movie) {
@@ -365,9 +486,28 @@ class MovieController extends Controller
     // Notification methods
     public function getNotifications(Request $request)
     {
-        $notifications = MovieViewNotification::with('movie')
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $query = MovieViewNotification::with(['movie', 'izisobanuyeMovie']);
+
+        // Filter by type if specified
+        if ($request->has('type') && $request->type) {
+            if ($request->type === 'translated') {
+                $query->whereHas('movie', function ($q) {
+                    $q->where('is_deleted_for_users', false);
+                })->whereNull('izisobanuye_movie_id');
+            } elseif ($request->type === 'untranslated') {
+                $query->whereHas('movie', function ($q) {
+                    $q->where('is_deleted_for_users', true);
+                })->whereNull('izisobanuye_movie_id');
+            } elseif ($request->type === 'izisobanuye') {
+                $query->whereNotNull('izisobanuye_movie_id');
+            } elseif ($request->type === 'read') {
+                $query->where('is_read', true);
+            } elseif ($request->type === 'unread') {
+                $query->where('is_read', false);
+            }
+        }
+
+        $notifications = $query->orderBy('created_at', 'desc')->paginate(20);
 
         return response()->json($notifications);
     }
@@ -386,9 +526,24 @@ class MovieController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function markAllNotificationsAsRead()
+    public function markAllNotificationsAsRead(Request $request)
     {
-        MovieViewNotification::unread()->update([
+        $query = MovieViewNotification::unread();
+
+        // Filter by type if specified
+        if ($request->has('type') && $request->type) {
+            if ($request->type === 'translated') {
+                $query->whereHas('movie', function ($q) {
+                    $q->where('is_deleted_for_users', false);
+                });
+            } elseif ($request->type === 'untranslated') {
+                $query->whereHas('movie', function ($q) {
+                    $q->where('is_deleted_for_users', true);
+                });
+            }
+        }
+
+        $query->update([
             'is_read' => true,
             'read_at' => now(),
         ]);
@@ -411,19 +566,716 @@ class MovieController extends Controller
 
     public function getTotalWatchDurationForUntranslatedMovies()
     {
-        // Since there's no specific "untranslated" field, we'll sum watch duration for all movies
-        // Assuming "untranslated movies" means all movies in the system
-        $totalDuration = MovieViewNotification::whereNotNull('watch_duration')->sum('watch_duration');
+        $totalDuration = MovieViewNotification::whereNotNull('watch_duration')
+            ->whereHas('movie', function ($query) {
+                $query->where('is_deleted_for_users', true);
+            })
+            ->sum('watch_duration');
 
         return response()->json([
             'total_duration' => $totalDuration,
         ]);
     }
 
-    public function resetNotifications()
+    public function getTotalWatchDurationForTranslatedMovies()
     {
-        MovieViewNotification::truncate();
+        $totalDuration = MovieViewNotification::whereNotNull('watch_duration')
+            ->whereHas('movie', function ($query) {
+                $query->where('is_deleted_for_users', false);
+            })
+            ->sum('watch_duration');
 
-        return response()->json(['success' => true, 'message' => 'Notifications reset successfully']);
+        return response()->json([
+            'total_duration' => $totalDuration,
+        ]);
+    }
+
+    public function resetNotifications(Request $request)
+    {
+        $query = MovieViewNotification::query();
+
+        // Filter by type if specified
+        if ($request->has('type') && $request->type) {
+            if ($request->type === 'translated') {
+                $query->whereHas('movie', function ($q) {
+                    $q->where('is_deleted_for_users', false);
+                });
+            } elseif ($request->type === 'untranslated') {
+                $query->whereHas('movie', function ($q) {
+                    $q->where('is_deleted_for_users', true);
+                });
+            }
+        }
+
+        if ($request->has('type') && $request->type) {
+            // Delete only filtered notifications
+            $query->delete();
+            $message = ucfirst($request->type) . ' movie notifications reset successfully';
+        } else {
+            // Delete all notifications
+            MovieViewNotification::truncate();
+            $message = 'All notifications reset successfully';
+        }
+
+        return response()->json(['success' => true, 'message' => $message]);
+    }
+
+    public function getDashboardStats()
+    {
+        $totalViews = Movie::sum('view_count');
+        $totalComments = \App\Models\Comment::count();
+        $totalSubscribers = 0; // TODO: Implement when subscription system is added
+        $revenue = 0; // TODO: Implement when payment system is added
+
+        return response()->json([
+            'total_views' => $totalViews,
+            'total_comments' => $totalComments,
+            'total_subscribers' => $totalSubscribers,
+            'revenue' => $revenue,
+        ]);
+    }
+
+    public function getRecentActivities()
+    {
+        $activities = MovieViewNotification::with('movie')
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'type' => 'movie_view',
+                    'message' => "Movie \"{$notification->movie_title}\" viewed {$notification->new_view_count} times",
+                    'timestamp' => $notification->created_at->diffForHumans(),
+                    'created_at' => $notification->created_at,
+                ];
+            });
+
+        // Add some mock activities for variety
+        $mockActivities = [
+            [
+                'id' => 'mock_1',
+                'type' => 'user_registration',
+                'message' => 'New user registered',
+                'timestamp' => '2 minutes ago',
+                'created_at' => now()->subMinutes(2),
+            ],
+            [
+                'id' => 'mock_2',
+                'type' => 'subscription',
+                'message' => 'New subscription purchased',
+                'timestamp' => '1 hour ago',
+                'created_at' => now()->subHour(),
+            ],
+        ];
+
+        $allActivities = collect($mockActivities)->merge($activities)->sortByDesc('created_at')->take(5);
+
+        return response()->json($allActivities->values());
+    }
+
+    public function getTopPerformingMovies()
+    {
+        $topMovies = Movie::orderBy('view_count', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($movie) {
+                return [
+                    'id' => $movie->id,
+                    'title' => $movie->title,
+                    'poster' => $movie->poster_path ? 'https://image.tmdb.org/t/p/w500' . $movie->poster_path : null,
+                    'rating' => $movie->rating,
+                    'view_count' => $movie->view_count,
+                ];
+            });
+
+        return response()->json($topMovies);
+    }
+
+    public function getRecentIzisobanuyeMovies()
+    {
+        $recentMovies = IzisobanuyeMovie::where('is_deleted_for_users', false)
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($movie) {
+                return [
+                    'id' => $movie->id,
+                    'title' => $movie->title,
+                    'poster' => $movie->poster_file_path ?: ($movie->poster_path ? 'https://image.tmdb.org/t/p/w500' . $movie->poster_path : '/Images/default-movie.jpg'),
+                    'rating' => $movie->rating,
+                    'created_at' => $movie->created_at,
+                ];
+            });
+
+        return response()->json($recentMovies);
+    }
+
+    public function getMovieCounts()
+    {
+        $translatedCount = Movie::where('is_deleted_for_users', false)->count();
+        $untranslatedCount = Movie::where('is_deleted_for_users', true)->count();
+
+        return response()->json([
+            'translated' => $translatedCount,
+            'untranslated' => $untranslatedCount,
+        ]);
+    }
+
+    public function getNotificationCounts()
+    {
+        $translatedNotifications = MovieViewNotification::whereHas('movie', function ($query) {
+            $query->where('is_deleted_for_users', false);
+        })->unread()->count();
+
+        $untranslatedNotifications = MovieViewNotification::whereHas('movie', function ($query) {
+            $query->where('is_deleted_for_users', true);
+        })->unread()->count();
+
+        return response()->json([
+            'translated' => $translatedNotifications,
+            'untranslated' => $untranslatedNotifications,
+        ]);
+    }
+
+    public function homepageMovies()
+    {
+        $movies = Movie::where('is_deleted_for_users', false)
+            ->whereNotNull('interpreter')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($movie) {
+                return [
+                    'id' => $movie->tmdb_id,
+                    'title' => $movie->title,
+                    'poster' => $movie->poster_file_path ?: ($movie->poster_path ? 'https://image.tmdb.org/t/p/w500' . $movie->poster_path : '/Images/default-movie.jpg'),
+                    'rating' => $movie->rating,
+                    'genre' => $movie->genres ?? [],
+                    'description' => $movie->description,
+                    'releaseYear' => $movie->release_year,
+                    'duration' => $movie->duration,
+                    'interpreter' => $movie->interpreter,
+                    'trailer' => $movie->trailer_url,
+                    'poster_file_path' => $movie->poster_file_path,
+                    'movie_file_path' => $movie->movie_file_path,
+                    'category' => 'recent', // Default category for now
+                ];
+            });
+
+        return response()->json($movies);
+    }
+
+    public function originalMovies()
+    {
+        $movies = Movie::where('is_deleted_for_users', false)
+            ->whereNull('interpreter')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($movie) {
+                return [
+                    'id' => $movie->tmdb_id,
+                    'title' => $movie->title,
+                    'poster' => $movie->poster_file_path ?: ($movie->poster_path ? 'https://image.tmdb.org/t/p/w500' . $movie->poster_path : '/Images/default-movie.jpg'),
+                    'rating' => $movie->rating,
+                    'genre' => $movie->genres ?? [],
+                    'description' => $movie->description,
+                    'releaseYear' => $movie->release_year,
+                    'duration' => $movie->duration,
+                    'interpreter' => $movie->interpreter,
+                    'trailer' => $movie->trailer_url,
+                    'poster_file_path' => $movie->poster_file_path,
+                    'movie_file_path' => $movie->movie_file_path,
+                    'category' => 'recent', // Default category for now
+                ];
+            });
+
+        return response()->json($movies);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'tmdb_id' => 'nullable|integer',
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'poster_path' => 'nullable|string',
+            'rating' => 'required|numeric|min:0|max:10',
+            'genres' => 'nullable|array',
+            'release_year' => 'nullable|integer',
+            'duration' => 'nullable|integer',
+            'interpreter' => 'nullable|string',
+            'trailer_url' => 'nullable|string',
+            'movie_file' => 'nullable|file|mimes:mp4,avi,mkv,mov,wmv,flv,webm|max:1048576', // 1GB max
+            'poster_file' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:5120', // 5MB max
+        ]);
+
+        $data = $validated;
+
+        // Handle movie file upload
+        if ($request->hasFile('movie_file')) {
+            $movieFile = $request->file('movie_file');
+            $movieFileName = time() . '_' . $movieFile->getClientOriginalName();
+            $movieFile->storeAs('movies', $movieFileName, 'public');
+            $data['movie_file_path'] = 'storage/movies/' . $movieFileName;
+        }
+
+        // Handle poster file upload
+        if ($request->hasFile('poster_file')) {
+            $posterFile = $request->file('poster_file');
+            $posterFileName = time() . '_' . $posterFile->getClientOriginalName();
+            $posterFile->storeAs('posters', $posterFileName, 'public');
+            $data['poster_file_path'] = 'storage/posters/' . $posterFileName;
+        }
+
+        // If no tmdb_id provided, generate one
+        if (!isset($data['tmdb_id'])) {
+            $data['tmdb_id'] = time() + rand(1000, 9999);
+        }
+
+        $movie = Movie::create($data);
+
+        return response()->json($movie, 201);
+    }
+
+    // Izisobanuye Movie Management Methods
+    public function storeIzisobanuyeMovie(Request $request)
+    {
+        \Log::info('Starting Izisobanuye movie upload', [
+            'request_data' => $request->all(),
+            'files' => $request->allFiles(),
+            'csrf_token' => $request->header('X-CSRF-TOKEN')
+        ]);
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'poster_path' => 'nullable|string',
+            'rating' => 'required|numeric|min:0|max:10',
+            'genres' => 'nullable|array',
+            'release_year' => 'nullable|integer',
+            'duration' => 'nullable|integer',
+            'interpreter' => 'required|string',
+            'trailer_url' => 'nullable|string',
+            'movie_file' => 'nullable|file|mimes:mp4,avi,mkv,mov,wmv,flv,webm|max:512000', // 500MB max
+            'poster_file' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:5120', // 5MB max
+        ]);
+
+        \Log::info('Validation passed', ['validated_data' => $validated]);
+
+        $data = $validated;
+
+        // Handle movie file upload
+        if ($request->hasFile('movie_file')) {
+            $movieFile = $request->file('movie_file');
+            $movieFileName = time() . '_' . $movieFile->getClientOriginalName();
+            \Log::info('Uploading movie file', ['filename' => $movieFileName, 'size' => $movieFile->getSize()]);
+            $movieFile->storeAs('izisobanuye/movies', $movieFileName, 'public');
+            $data['movie_file_path'] = 'storage/izisobanuye/movies/' . $movieFileName;
+            \Log::info('Movie file uploaded successfully', ['path' => $data['movie_file_path']]);
+        }
+
+        // Handle poster file upload
+        if ($request->hasFile('poster_file')) {
+            $posterFile = $request->file('poster_file');
+            $posterFileName = time() . '_' . $posterFile->getClientOriginalName();
+            \Log::info('Uploading poster file', ['filename' => $posterFileName, 'size' => $posterFile->getSize()]);
+            $posterFile->storeAs('izisobanuye/posters', $posterFileName, 'public');
+            $data['poster_file_path'] = 'storage/izisobanuye/posters/' . $posterFileName;
+            \Log::info('Poster file uploaded successfully', ['path' => $data['poster_file_path']]);
+        }
+
+        \Log::info('Creating IzisobanuyeMovie record', ['data' => $data]);
+        $movie = IzisobanuyeMovie::create($data);
+        \Log::info('IzisobanuyeMovie created successfully', ['movie_id' => $movie->id]);
+
+        return response()->json($movie, 201);
+    }
+
+    public function getIzisobanuyeMovies(Request $request)
+    {
+        $query = IzisobanuyeMovie::query();
+
+        // Search functionality
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where('title', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+        }
+
+        // Genre filter
+        if ($request->has('genre') && $request->genre && $request->genre !== 'all') {
+            $query->whereJsonContains('genres', $request->genre);
+        }
+
+        // Status filter
+        if ($request->has('status') && $request->status) {
+            if ($request->status === 'deleted') {
+                $query->where('is_deleted_for_users', true);
+            } elseif ($request->status === 'active') {
+                $query->where('is_deleted_for_users', false);
+            }
+        }
+
+        // Sort functionality
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+
+        $allowedSortFields = ['title', 'release_year', 'rating', 'view_count', 'created_at'];
+        if (in_array($sortBy, $allowedSortFields)) {
+            $query->orderBy($sortBy, $sortOrder);
+        }
+
+        // Pagination
+        $perPage = $request->get('per_page', 100);
+        return $query->paginate($perPage);
+    }
+
+    public function toggleIzisobanuyeMovieStatus($id)
+    {
+        $movie = IzisobanuyeMovie::findOrFail($id);
+        $movie->update(['is_deleted_for_users' => !$movie->is_deleted_for_users]);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function getIzisobanuyeMoviesForUsers()
+    {
+        $movies = IzisobanuyeMovie::where('is_deleted_for_users', false)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($movie) {
+                return [
+                    'id' => $movie->id,
+                    'title' => $movie->title,
+                    'poster' => $movie->poster_file_path ?: ($movie->poster_path ? 'https://image.tmdb.org/t/p/w500' . $movie->poster_path : '/Images/default-movie.jpg'),
+                    'rating' => $movie->rating,
+                    'genre' => $movie->genres ?? [],
+                    'description' => $movie->description,
+                    'releaseYear' => $movie->release_year,
+                    'duration' => $movie->duration,
+                    'interpreter' => $movie->interpreter,
+                    'trailer' => $movie->trailer_url,
+                    'poster_file_path' => $movie->poster_file_path,
+                    'movie_file_path' => $movie->movie_file_path,
+                    'category' => 'izisobanuye',
+                ];
+            });
+
+        return response()->json($movies);
+    }
+
+    public function getReportsData(Request $request)
+    {
+        $timeRange = $request->get('time_range', '30d');
+
+        // Calculate date range based on time_range
+        $startDate = match($timeRange) {
+            '7d' => now()->subDays(7),
+            '30d' => now()->subDays(30),
+            '90d' => now()->subDays(90),
+            '1y' => now()->subYear(),
+            default => now()->subDays(30),
+        };
+
+        $data = [];
+
+        // Movies Reports
+        $totalMovies = Movie::where('is_deleted_for_users', false)->count() + IzisobanuyeMovie::where('is_deleted_for_users', false)->count();
+        $newMoviesThisMonth = Movie::where('created_at', '>=', now()->startOfMonth())->count() + IzisobanuyeMovie::where('created_at', '>=', now()->startOfMonth())->count();
+
+        // Most viewed movie
+        $mostViewedMovie = Movie::where('is_deleted_for_users', false)->orderBy('view_count', 'desc')->first();
+        $mostViewedIzisobanuye = IzisobanuyeMovie::where('is_deleted_for_users', false)->orderBy('view_count', 'desc')->first();
+
+        $mostViewed = null;
+        if ($mostViewedMovie && $mostViewedIzisobanuye) {
+            $mostViewed = $mostViewedMovie->view_count > $mostViewedIzisobanuye->view_count ? $mostViewedMovie->title : $mostViewedIzisobanuye->title;
+        } elseif ($mostViewedMovie) {
+            $mostViewed = $mostViewedMovie->title;
+        } elseif ($mostViewedIzisobanuye) {
+            $mostViewed = $mostViewedIzisobanuye->title;
+        }
+
+        // Average rating
+        $avgRating = round(Movie::where('is_deleted_for_users', false)->avg('rating') ?? 0, 1);
+
+        // Movies by category/genre
+        $genreCounts = [];
+        $movies = Movie::where('is_deleted_for_users', false)->get();
+        foreach ($movies as $movie) {
+            if ($movie->genres) {
+                foreach ($movie->genres as $genre) {
+                    $genreCounts[$genre] = ($genreCounts[$genre] ?? 0) + 1;
+                }
+            }
+        }
+        $izisobanuyeMovies = IzisobanuyeMovie::where('is_deleted_for_users', false)->get();
+        foreach ($izisobanuyeMovies as $movie) {
+            if ($movie->genres) {
+                foreach ($movie->genres as $genre) {
+                    $genreCounts[$genre] = ($genreCounts[$genre] ?? 0) + 1;
+                }
+            }
+        }
+
+        $totalGenreMovies = array_sum($genreCounts);
+        $moviesByGenre = [];
+        foreach ($genreCounts as $genre => $count) {
+            $moviesByGenre[] = [
+                'genre' => $genre,
+                'count' => $count,
+                'percentage' => $totalGenreMovies > 0 ? round(($count / $totalGenreMovies) * 100, 1) : 0,
+            ];
+        }
+        usort($moviesByGenre, fn($a, $b) => $b['count'] <=> $a['count']);
+
+        // Most viewed movies
+        $mostViewedMovies = Movie::where('is_deleted_for_users', false)
+            ->orderBy('view_count', 'desc')
+            ->take(5)
+            ->get(['title', 'view_count', 'rating']);
+
+        $mostViewedIzisobanuyeMovies = IzisobanuyeMovie::where('is_deleted_for_users', false)
+            ->orderBy('view_count', 'desc')
+            ->take(5)
+            ->get(['title', 'view_count', 'rating']);
+
+        $allMostViewed = collect([...$mostViewedMovies, ...$mostViewedIzisobanuyeMovies])
+            ->sortByDesc('view_count')
+            ->take(5)
+            ->map(fn($movie) => [
+                'title' => $movie->title,
+                'views' => number_format($movie->view_count),
+                'rating' => $movie->rating,
+            ]);
+
+        // Highest rated movies
+        $highestRatedMovies = Movie::where('is_deleted_for_users', false)
+            ->whereNotNull('rating')
+            ->orderBy('rating', 'desc')
+            ->take(5)
+            ->get(['title', 'rating']);
+
+        $highestRatedIzisobanuye = IzisobanuyeMovie::where('is_deleted_for_users', false)
+            ->whereNotNull('rating')
+            ->orderBy('rating', 'desc')
+            ->take(5)
+            ->get(['title', 'rating']);
+
+        $allHighestRated = collect([...$highestRatedMovies, ...$highestRatedIzisobanuye])
+            ->sortByDesc('rating')
+            ->take(5)
+            ->map(fn($movie) => [
+                'title' => $movie->title,
+                'rating' => $movie->rating,
+                'votes' => 'N/A', // We don't have vote counts
+            ]);
+
+        $data['movies'] = [
+            'total_movies' => $totalMovies,
+            'new_this_month' => $newMoviesThisMonth,
+            'most_viewed' => $mostViewed,
+            'avg_rating' => $avgRating,
+            'movies_by_genre' => $moviesByGenre,
+            'most_viewed_movies' => $allMostViewed,
+            'highest_rated_movies' => $allHighestRated,
+        ];
+
+        // Users Reports
+        $totalUsers = \App\Models\User::count();
+        $activeUsers = \App\Models\User::where('created_at', '>=', $startDate)->count();
+        $newUsersThisMonth = \App\Models\User::where('created_at', '>=', now()->startOfMonth())->count();
+        $avgWatchTime = MovieViewNotification::whereNotNull('watch_duration')->avg('watch_duration') ?? 0;
+        $avgWatchTimeFormatted = $avgWatchTime > 0 ? sprintf('%dh %dm', floor($avgWatchTime / 3600), floor(($avgWatchTime % 3600) / 60)) : '0h 0m';
+
+        // User activity status (mock data for now, as we don't have last activity tracking)
+        $userActivity = [
+            'active' => ['count' => round($totalUsers * 0.7), 'percentage' => 70.5],
+            'inactive' => ['count' => round($totalUsers * 0.2), 'percentage' => 20.3],
+            'dormant' => ['count' => round($totalUsers * 0.1), 'percentage' => 9.2],
+        ];
+
+        // Subscription overview
+        $activeSubscriptions = \App\Models\User::where('subscription_status', 'active')->count();
+        $expiredSubscriptions = \App\Models\User::where('subscription_status', 'expired')->count();
+        $canceledSubscriptions = \App\Models\User::where('subscription_status', 'canceled')->count();
+        $freeTrials = \App\Models\User::where('subscription_status', 'trial')->count();
+
+        // Top users by watch time
+        $topUsers = MovieViewNotification::selectRaw('ip_address as user_name, SUM(watch_duration) as total_watch_time, COUNT(*) as movies_watched')
+            ->whereNotNull('watch_duration')
+            ->groupBy('ip_address')
+            ->orderBy('total_watch_time', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($user) {
+                $hours = floor($user->total_watch_time / 3600);
+                $minutes = floor(($user->total_watch_time % 3600) / 60);
+                return [
+                    'name' => $user->user_name,
+                    'watchTime' => "{$hours}h {$minutes}m",
+                    'movies' => $user->movies_watched,
+                ];
+            });
+
+        $data['users'] = [
+            'total_users' => $totalUsers,
+            'active_users' => $activeUsers,
+            'new_this_month' => $newUsersThisMonth,
+            'avg_watch_time' => $avgWatchTimeFormatted,
+            'user_activity' => $userActivity,
+            'subscription_overview' => [
+                'active' => $activeSubscriptions,
+                'expired' => $expiredSubscriptions,
+                'canceled' => $canceledSubscriptions,
+                'free_trial' => $freeTrials,
+            ],
+            'top_users' => $topUsers,
+        ];
+
+        // Subscription & Payment Reports
+        $monthlyRevenue = 0; // TODO: Implement when payment system is added
+        $newSubscriptions = \App\Models\User::where('subscription_start_date', '>=', $startDate)->count();
+        $renewals = \App\Models\User::where('subscription_start_date', '>=', $startDate)->where('subscription_status', 'active')->count();
+        $cancellations = \App\Models\User::where('subscription_expiry_date', '>=', $startDate)->where('subscription_status', 'canceled')->count();
+
+        $data['subscription'] = [
+            'monthly_revenue' => $monthlyRevenue,
+            'new_subscriptions' => $newSubscriptions,
+            'renewals' => $renewals,
+            'cancellations' => $cancellations,
+            'revenue_breakdown' => [
+                'monthly_plans' => ['amount' => 0, 'percentage' => 0],
+                'yearly_plans' => ['amount' => 0, 'percentage' => 0],
+                'weekly_plans' => ['amount' => 0, 'percentage' => 0],
+            ],
+            'subscription_trends' => [
+                'new_subscriptions' => ['count' => $newSubscriptions, 'change' => 0],
+                'renewals' => ['count' => $renewals, 'change' => 0],
+                'cancellations' => ['count' => $cancellations, 'change' => 0],
+            ],
+        ];
+
+        // Comments & Engagement Reports
+        $totalComments = \App\Models\Comment::count();
+        $commentsThisMonth = \App\Models\Comment::where('created_at', '>=', now()->startOfMonth())->count();
+
+        // Most commented movie (simplified - we don't have movie-comment relationship yet)
+        $mostCommentedMovie = 'Inception'; // Placeholder
+
+        $flaggedComments = \App\Models\Comment::where('status', 'flagged')->count();
+
+        // Most commented movies (placeholder data)
+        $mostCommentedMovies = [
+            ['title' => 'Inception', 'comments' => 234, 'engagement' => 'High'],
+            ['title' => 'The Dark Knight', 'comments' => 198, 'engagement' => 'High'],
+            ['title' => 'Interstellar', 'comments' => 187, 'engagement' => 'High'],
+            ['title' => 'Pulp Fiction', 'comments' => 156, 'engagement' => 'Medium'],
+            ['title' => 'The Matrix', 'comments' => 143, 'engagement' => 'Medium'],
+        ];
+
+        // Comment status breakdown
+        $approvedComments = \App\Models\Comment::where('status', 'approved')->count();
+        $pendingComments = \App\Models\Comment::where('status', 'pending')->count();
+        $flaggedCommentsCount = $flaggedComments;
+        $adminReplies = \App\Models\Comment::whereNotNull('admin_reply')->count();
+
+        $data['engagement'] = [
+            'total_comments' => $totalComments,
+            'comments_this_month' => $commentsThisMonth,
+            'most_commented_movie' => $mostCommentedMovie,
+            'flagged_comments' => $flaggedComments,
+            'most_commented_movies' => $mostCommentedMovies,
+            'comment_status' => [
+                'approved' => $approvedComments,
+                'pending' => $pendingComments,
+                'flagged' => $flaggedCommentsCount,
+                'admin_replies' => $adminReplies,
+            ],
+        ];
+
+        // System Reports
+        $systemUptime = 99.8; // Mock data
+        $storageUsed = '2.4TB'; // Mock data
+        $errorRate = 0.02; // Mock data
+        $avgResponseTime = 245; // Mock data
+
+        // Recent system errors (mock data)
+        $recentErrors = [
+            ['time' => '2 hours ago', 'error' => 'Video streaming buffer timeout', 'severity' => 'Medium'],
+            ['time' => '5 hours ago', 'error' => 'Database connection timeout', 'severity' => 'High'],
+            ['time' => '1 day ago', 'error' => 'Payment gateway timeout', 'severity' => 'Medium'],
+            ['time' => '2 days ago', 'error' => 'CDN cache miss rate high', 'severity' => 'Low'],
+            ['time' => '3 days ago', 'error' => 'User authentication failure', 'severity' => 'Medium'],
+        ];
+
+        // Storage usage breakdown (mock data)
+        $storageBreakdown = [
+            ['category' => 'Video Content', 'used' => '1.8TB', 'percentage' => 75],
+            ['category' => 'User Data', 'used' => '360GB', 'percentage' => 15],
+            ['category' => 'System Logs', 'used' => '120GB', 'percentage' => 5],
+            ['category' => 'Available', 'used' => '120GB', 'percentage' => 5],
+        ];
+
+        $data['system'] = [
+            'system_uptime' => $systemUptime,
+            'storage_used' => $storageUsed,
+            'error_rate' => $errorRate,
+            'avg_response_time' => $avgResponseTime,
+            'recent_errors' => $recentErrors,
+            'storage_breakdown' => $storageBreakdown,
+        ];
+
+        return response()->json($data);
+    }
+
+    public function getHero()
+    {
+        $hero = \App\Models\Hero::first();
+        return response()->json($hero);
+    }
+
+    public function storeHero(Request $request)
+    {
+        \Log::info('StoreHero called', ['request_data' => $request->all()]);
+
+        try {
+            $validated = $request->validate([
+                'title' => 'required|string|max:255',
+                'overview' => 'nullable|string',
+                'genre' => 'nullable|string',
+                'release_year' => 'nullable|integer',
+                'watch_now_url' => 'nullable|string',
+                'watch_trailer_url' => 'nullable|string',
+            ]);
+
+            // Validate poster file separately
+            if ($request->hasFile('poster_file')) {
+                $request->validate([
+                    'poster_file' => 'file|mimes:jpg,jpeg,png,gif,webp|max:5120', // 5MB max
+                ]);
+            }
+
+            \Log::info('Validation passed', ['validated' => $validated]);
+
+            $data = $validated;
+
+            // Handle poster file upload
+            if ($request->hasFile('poster_file')) {
+                $posterFile = $request->file('poster_file');
+                $posterFileName = time() . '_' . $posterFile->getClientOriginalName();
+                $posterFile->storeAs('heroes', $posterFileName, 'public');
+                $data['poster_path'] = 'heroes/' . $posterFileName;
+                \Log::info('Poster file uploaded', ['path' => $data['poster_path']]);
+            }
+
+            $hero = \App\Models\Hero::updateOrCreate([], $data);
+            \Log::info('Hero saved', ['hero' => $hero]);
+
+            return response()->json($hero, 200);
+        } catch (\Exception $e) {
+            \Log::error('Error saving hero', ['error' => $e->getMessage()]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 }

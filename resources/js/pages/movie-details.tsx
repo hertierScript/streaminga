@@ -10,14 +10,13 @@ import {
     ArrowLeft,
     Check,
     Film,
+    Heart,
     Home,
-    LogOut,
     Menu,
     Play,
     Search,
     Send,
     Star,
-    User,
     X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -61,11 +60,13 @@ export default function MovieDetails({ movie }: Props) {
         const handleBeforeUnload = () => {
             const duration = Math.floor((Date.now() - startTime) / 1000);
             // Send duration update
-            axios.post(`/admin/api/movies/${movie.id}/increment-view`, {
-                watch_duration: duration
-            }).catch(error => {
-                console.error('Error updating watch duration:', error);
-            });
+            axios
+                .post(`/admin/api/movies/${movie.id}/increment-view`, {
+                    watch_duration: duration,
+                })
+                .catch((error) => {
+                    console.error('Error updating watch duration:', error);
+                });
         };
 
         window.addEventListener('beforeunload', handleBeforeUnload);
@@ -74,11 +75,13 @@ export default function MovieDetails({ movie }: Props) {
             window.removeEventListener('beforeunload', handleBeforeUnload);
             // Also send on unmount
             const duration = Math.floor((Date.now() - startTime) / 1000);
-            axios.post(`/admin/api/movies/${movie.id}/increment-view`, {
-                watch_duration: duration
-            }).catch(error => {
-                console.error('Error updating watch duration:', error);
-            });
+            axios
+                .post(`/admin/api/movies/${movie.id}/increment-view`, {
+                    watch_duration: duration,
+                })
+                .catch((error) => {
+                    console.error('Error updating watch duration:', error);
+                });
         };
     }, [movie.id]);
 
@@ -198,10 +201,12 @@ export default function MovieDetails({ movie }: Props) {
                                 <img
                                     src="/Images/logo.png"
                                     alt="Streaminga"
-                                    className="h-8 w-auto sm:h-10 md:h-12 lg:h-14"
+                                    className="h-22 w-auto pt-2"
                                 />
                             </Link>
                             <div className="hidden space-x-4 md:flex lg:space-x-6">
+                                {/* // Navigation link to the izisobanuye
+                                (interpreted movies) page
                                 <Link
                                     href="/izisobanuye"
                                     preserveScroll
@@ -209,7 +214,7 @@ export default function MovieDetails({ movie }: Props) {
                                 >
                                     <Home className="mr-1 inline h-3 w-3 lg:h-4 lg:w-4" />
                                     izisobanuye
-                                </Link>
+                                </Link> */}
                                 <Link
                                     href="/izidasobanuye"
                                     preserveScroll
@@ -254,22 +259,16 @@ export default function MovieDetails({ movie }: Props) {
                                     )}
                                 </Button>
                             </div>
-                            <Link
-                                href="/register"
-                                preserveScroll
-                                className="hidden text-sm text-gray-300 transition-colors hover:text-white sm:inline-block"
-                            >
-                                <User className="mr-1 inline h-3 w-3 sm:h-4 sm:w-4" />
-                                Sign Up
-                            </Link>
-                            <Link
-                                href="/login"
-                                preserveScroll
-                                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-red-700 sm:px-4 sm:py-2"
-                            >
-                                <LogOut className="mr-1 inline h-3 w-3 sm:h-4 sm:w-4" />
-                                Login
-                            </Link>
+                            <div className="flex items-center space-x-2">
+                                <Link
+                                    href="/donate"
+                                    preserveScroll
+                                    className="rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-green-700 sm:px-4 sm:py-2"
+                                >
+                                    <Heart className="mr-1 inline h-3 w-3 sm:h-4 sm:w-4" />
+                                    Donate
+                                </Link>
+                            </div>
                         </div>
                     </div>
 
@@ -323,17 +322,19 @@ export default function MovieDetails({ movie }: Props) {
                                         <Film className="mr-2 inline h-4 w-4" />
                                         izidasobanuye
                                     </Link>
-                                    <Link
-                                        href="/register"
-                                        preserveScroll
-                                        className="py-2 text-gray-300 hover:text-white"
-                                        onClick={() =>
-                                            setIsMobileMenuOpen(false)
-                                        }
-                                    >
-                                        <User className="mr-2 inline h-4 w-4" />
-                                        Sign Up
-                                    </Link>
+                                    <div className="space-y-2">
+                                        <Link
+                                            href="/donate"
+                                            preserveScroll
+                                            className="block py-2 text-gray-300 hover:text-white"
+                                            onClick={() =>
+                                                setIsMobileMenuOpen(false)
+                                            }
+                                        >
+                                            <Heart className="mr-2 inline h-4 w-4" />
+                                            Donate
+                                        </Link>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -354,10 +355,19 @@ export default function MovieDetails({ movie }: Props) {
 
             <div className="min-h-screen bg-gray-900 text-white">
                 {/* Hero Section */}
-                <div className="relative flex h-[40vh] items-center justify-center bg-gray-900 sm:h-[50vh] md:h-[60vh] lg:h-[70vh]">
-                    {isMobile && (
-                        <div className="absolute inset-0 bg-gradient-to-b from-gray-800 to-gray-900" />
-                    )}
+                <div className="relative flex h-[60vh] items-center justify-center bg-gray-900 sm:h-[70vh] md:h-[80vh] lg:h-[90vh]">
+                    {/* Background Poster */}
+                    <div
+                        className="absolute inset-0 bg-cover bg-center"
+                        style={{
+                            backgroundImage: movie.poster
+                                ? `url(${movie.poster})`
+                                : 'none',
+                        }}
+                    ></div>
+                    <div className="absolute inset-0 bg-black/70"></div>
+
+                    {/* Content */}
                     <div className="relative z-20 mx-auto w-full max-w-4xl px-6 text-center sm:px-8 lg:px-12">
                         <h1 className="mb-2 text-2xl leading-tight font-bold text-shadow-lg sm:mb-3 sm:text-3xl md:mb-4 md:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl">
                             {movie.title}
@@ -366,7 +376,9 @@ export default function MovieDetails({ movie }: Props) {
                             <div className="flex items-center gap-1 sm:gap-2">
                                 <Star className="h-3 w-3 flex-shrink-0 fill-yellow-400 text-yellow-400 sm:h-4 sm:w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
                                 <span className="text-sm font-semibold sm:text-base md:text-lg lg:text-xl">
-                                    {movie.rating}
+                                    {movie.rating
+                                        ? Math.floor(movie.rating * 10) / 10
+                                        : 'N/A'}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-gray-300 sm:gap-4 sm:text-sm md:text-base lg:text-lg">
@@ -400,12 +412,21 @@ export default function MovieDetails({ movie }: Props) {
                         <div className="mx-auto flex max-w-sm flex-col justify-center gap-3 px-6 sm:max-w-md sm:flex-row sm:gap-4 sm:px-8">
                             <Button
                                 className="w-full min-w-0 bg-red-600 px-4 py-3 text-sm text-white transition-all duration-200 hover:bg-red-700 sm:px-6 sm:py-4 sm:text-base"
-                                onClick={() =>
-                                    window.open(
-                                        `https://vidsrc.to/embed/movie/${movie.id}`,
-                                        '_blank',
-                                    )
-                                }
+                                onClick={() => {
+                                    if (movie.movie_file_path) {
+                                        // Use uploaded movie file
+                                        window.open(
+                                            `/${movie.movie_file_path}`,
+                                            '_blank',
+                                        );
+                                    } else {
+                                        // Fallback to external link
+                                        window.open(
+                                            `https://vidsrc.to/embed/movie/${movie.id}`,
+                                            '_blank',
+                                        );
+                                    }
+                                }}
                             >
                                 <Play className="mr-2 h-4 w-4 flex-shrink-0 sm:h-5 sm:w-5" />
                                 <span className="truncate">Watch Now</span>
@@ -427,95 +448,9 @@ export default function MovieDetails({ movie }: Props) {
                 </div>
 
                 {/* Content Section */}
-                <div className="relative min-h-screen bg-gray-900" style={{
-                    backgroundImage: !isMobile && movie.poster ? `url(${movie.poster})` : 'none',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat'
-                }}>
-                    {!isMobile && (
-                        <div className="absolute inset-0 bg-black/70"></div>
-                    )}
-                    <div className="relative z-10 mx-auto w-full max-w-full px-4 py-8 sm:max-w-4xl sm:px-6 sm:py-10 md:max-w-5xl md:px-8 md:py-16 lg:max-w-6xl lg:px-12">
-                        <div className="relative z-10 space-y-6 sm:space-y-8 md:space-y-12 lg:space-y-16">
-                            {/* Movie Title and Basic Info - Desktop Only */}
-                            {!isMobile && (
-                                <div className="px-2 text-center sm:px-0">
-                                    <h1 className="text-xl leading-tight font-bold break-words text-white drop-shadow-2xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl 2xl:text-6xl">
-                                        {movie.title}
-                                    </h1>
-                                    <div className="mt-3 flex flex-col items-center justify-center gap-2 text-xs text-gray-200 sm:mt-4 sm:flex-row sm:gap-4 sm:text-sm md:text-base lg:text-lg xl:text-xl">
-                                        <div className="flex flex-shrink-0 items-center gap-1 sm:gap-2">
-                                            <Star className="h-3 w-3 flex-shrink-0 fill-yellow-400 text-yellow-400 sm:h-4 sm:w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
-                                            <span className="font-semibold">
-                                                {movie.rating}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-gray-400 sm:gap-4">
-                                            <span className="hidden sm:inline">
-                                                •
-                                            </span>
-                                            <span className="whitespace-nowrap">
-                                                {movie.releaseYear}
-                                            </span>
-                                            <span className="hidden sm:inline">
-                                                •
-                                            </span>
-                                            <span className="whitespace-nowrap">
-                                                {movie.duration}min
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="mt-3 px-2 sm:mt-4 sm:px-4">
-                                        <div className="flex max-w-full flex-wrap justify-center gap-1 overflow-hidden sm:gap-2">
-                                            {movie.genre.slice(0, 4).map((g) => (
-                                                <Badge
-                                                    key={g}
-                                                    className="flex-shrink-0 border-0 bg-red-600/90 px-2 py-1 text-xs whitespace-nowrap text-white backdrop-blur-sm hover:bg-red-600 sm:px-3 sm:text-sm"
-                                                >
-                                                    {g}
-                                                </Badge>
-                                            ))}
-                                            {movie.genre.length > 4 && (
-                                                <Badge className="flex-shrink-0 bg-gray-600 px-2 py-1 text-xs whitespace-nowrap sm:text-sm">
-                                                    +{movie.genre.length - 4}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="mx-auto mt-4 flex max-w-sm flex-col justify-center gap-3 px-6 sm:mt-6 sm:max-w-md sm:flex-row sm:gap-4 sm:px-8">
-                                        <Button
-                                            className="w-full min-w-0 bg-red-600 px-4 py-3 text-sm text-white transition-all duration-200 hover:bg-red-700 sm:px-6 sm:py-4 sm:text-base"
-                                            onClick={() =>
-                                                window.open(
-                                                    `https://vidsrc.to/embed/movie/${movie.id}`,
-                                                    '_blank',
-                                                )
-                                            }
-                                        >
-                                            <Play className="mr-2 h-4 w-4 flex-shrink-0 sm:h-5 sm:w-5" />
-                                            <span className="truncate">
-                                                Watch Now
-                                            </span>
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full min-w-0 border-white/80 px-4 py-3 text-sm text-white transition-all duration-200 hover:bg-white hover:text-black sm:px-6 sm:py-4 sm:text-base"
-                                            onClick={() =>
-                                                movie.trailer &&
-                                                window.open(movie.trailer, '_blank')
-                                            }
-                                            disabled={!movie.trailer}
-                                        >
-                                            <Film className="mr-2 h-4 w-4 flex-shrink-0 sm:h-5 sm:w-5" />
-                                            <span className="truncate">
-                                                Watch Trailer
-                                            </span>
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-
+                <div className="bg-gray-900">
+                    <div className="mx-auto w-full max-w-full px-4 py-8 sm:max-w-4xl sm:px-6 sm:py-10 md:max-w-5xl md:px-8 md:py-16 lg:max-w-6xl lg:px-12">
+                        <div className="space-y-6 sm:space-y-8 md:space-y-12 lg:space-y-16">
                             {/* Overview Section */}
                             <div className="mx-auto max-w-4xl px-2 sm:px-0">
                                 <h2 className="mb-3 text-center text-lg font-bold text-white sm:mb-4 sm:text-xl md:text-2xl lg:text-3xl">
@@ -550,7 +485,12 @@ export default function MovieDetails({ movie }: Props) {
                                     </div>
                                     <div className="rounded-lg border border-gray-700/50 bg-black/40 p-3 text-center backdrop-blur-sm sm:col-span-2 sm:p-4 md:p-6 lg:col-span-1">
                                         <div className="mb-1 text-lg font-bold text-white sm:mb-2 sm:text-xl md:text-2xl lg:text-3xl">
-                                            {movie.rating}/10
+                                            {movie.rating
+                                                ? Math.floor(
+                                                      movie.rating * 10,
+                                                  ) / 10
+                                                : 'N/A'}
+                                            /10
                                         </div>
                                         <div className="text-xs text-gray-300 sm:text-sm">
                                             Rating
@@ -566,57 +506,53 @@ export default function MovieDetails({ movie }: Props) {
                                 </h2>
 
                                 {/* Comment Form */}
-                                {auth?.user && (
-                                    <div className="mb-4 rounded-lg border border-gray-700/50 bg-black/40 p-3 backdrop-blur-sm sm:mb-6 sm:p-4 md:p-6">
-                                        <form onSubmit={handleSubmit}>
-                                            <div className="mb-3 sm:mb-4">
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Your name"
-                                                    value={name}
-                                                    onChange={(e) =>
-                                                        setName(e.target.value)
-                                                    }
-                                                    className="border-gray-600 bg-gray-800 text-sm text-white placeholder-gray-400 sm:text-base"
-                                                    required
-                                                />
-                                                {errors.name && (
-                                                    <p className="mt-1 text-xs text-red-400 sm:text-sm">
-                                                        {errors.name}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div className="mb-3 sm:mb-4">
-                                                <textarea
-                                                    placeholder="Write your comment..."
-                                                    value={message}
-                                                    onChange={(e) =>
-                                                        setMessage(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    className="min-h-[80px] w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:outline-none sm:min-h-[100px] sm:text-base"
-                                                    required
-                                                />
-                                                {errors.message && (
-                                                    <p className="mt-1 text-xs text-red-400 sm:text-sm">
-                                                        {errors.message}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <Button
-                                                type="submit"
-                                                disabled={loading}
-                                                className="bg-red-600 text-sm text-white hover:bg-red-700 sm:text-base"
-                                            >
-                                                <Send className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                                                {loading
-                                                    ? 'Posting...'
-                                                    : 'Post Comment'}
-                                            </Button>
-                                        </form>
-                                    </div>
-                                )}
+                                <div className="mb-4 rounded-lg border border-gray-700/50 bg-black/40 p-3 backdrop-blur-sm sm:mb-6 sm:p-4 md:p-6">
+                                    <form onSubmit={handleSubmit}>
+                                        <div className="mb-3 sm:mb-4">
+                                            <Input
+                                                type="text"
+                                                placeholder="Your name"
+                                                value={name}
+                                                onChange={(e) =>
+                                                    setName(e.target.value)
+                                                }
+                                                className="border-gray-600 bg-gray-800 text-sm text-white placeholder-gray-400 sm:text-base"
+                                                required
+                                            />
+                                            {errors.name && (
+                                                <p className="mt-1 text-xs text-red-400 sm:text-sm">
+                                                    {errors.name}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="mb-3 sm:mb-4">
+                                            <textarea
+                                                placeholder="Write your comment..."
+                                                value={message}
+                                                onChange={(e) =>
+                                                    setMessage(e.target.value)
+                                                }
+                                                className="min-h-[80px] w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:outline-none sm:min-h-[100px] sm:text-base"
+                                                required
+                                            />
+                                            {errors.message && (
+                                                <p className="mt-1 text-xs text-red-400 sm:text-sm">
+                                                    {errors.message}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <Button
+                                            type="submit"
+                                            disabled={loading}
+                                            className="bg-red-600 text-sm text-white hover:bg-red-700 sm:text-base"
+                                        >
+                                            <Send className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                            {loading
+                                                ? 'Posting...'
+                                                : 'Post Comment'}
+                                        </Button>
+                                    </form>
+                                </div>
 
                                 {/* Comments List */}
                                 <div className="space-y-3 sm:space-y-4">
@@ -666,12 +602,6 @@ export default function MovieDetails({ movie }: Props) {
 
                                                     {/* Status Badges */}
                                                     <div className="mb-2 flex flex-wrap gap-1 sm:mb-3 sm:gap-2">
-                                                        {comment.status ===
-                                                            'pending' && (
-                                                            <Badge className="bg-yellow-600 px-2 py-1 text-xs text-white hover:bg-yellow-700">
-                                                                Pending Approval
-                                                            </Badge>
-                                                        )}
                                                         {comment.replies &&
                                                             comment.replies
                                                                 .length > 0 && (
@@ -743,19 +673,14 @@ export default function MovieDetails({ movie }: Props) {
                                         </div>
                                     ))}
 
-                                    {comments.filter(
-                                        (c) => c.status === 'approved',
-                                    ).length === 0 &&
-                                        comments.filter(
-                                            (c) => c.status === 'pending',
-                                        ).length === 0 && (
-                                            <div className="py-6 text-center sm:py-8">
-                                                <p className="text-sm text-gray-400 sm:text-base">
-                                                    No comments yet. Be the
-                                                    first to comment!
-                                                </p>
-                                            </div>
-                                        )}
+                                    {comments.length === 0 && (
+                                        <div className="py-6 text-center sm:py-8">
+                                            <p className="text-sm text-gray-400 sm:text-base">
+                                                No comments yet. Be number one
+                                                to comment!
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

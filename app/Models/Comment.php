@@ -31,4 +31,9 @@ class Comment extends Model
     {
         return $this->hasMany(Comment::class, 'parent_id');
     }
+
+    public function movie(): BelongsTo
+    {
+        return $this->belongsTo(Movie::class, 'movie_id', 'tmdb_id');
+    }
 }

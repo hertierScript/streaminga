@@ -26,7 +26,8 @@ import {
     Calendar,
     Activity,
     Shield,
-    Database
+    Database,
+    Star
 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 15;
@@ -317,32 +318,73 @@ function DashboardContent() {
                 <Card className="border-gray-700 bg-gray-800">
                     <CardHeader className="pb-3 sm:pb-4">
                         <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
-                            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
-                            <span>Top Performing Movies</span>
+                            <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+                            <span>Recently Added Movies</span>
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-0">
                         <div className="space-y-3 sm:space-y-4">
-                            {movies.slice(0, 5).map((movie, index) => (
-                                <div key={movie.id} className="flex items-center space-x-3">
-                                    <div className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-gray-700 text-xs sm:text-sm font-bold flex-shrink-0">
-                                        {index + 1}
-                                    </div>
-                                    <img
-                                        src={movie.poster}
-                                        alt={movie.title}
-                                        className="h-8 w-6 sm:h-10 sm:w-7 rounded object-cover flex-shrink-0"
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate">{movie.title}</p>
-                                        <p className="text-xs text-gray-400">{movie.rating} ★</p>
-                                    </div>
-                                </div>
-                            ))}
+                            <RecentMoviesList />
                         </div>
                     </CardContent>
                 </Card>
             </div>
+        </>
+    );
+}
+
+function RecentMoviesList() {
+    const [recentMovies, setRecentMovies] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchRecentMovies();
+    }, []);
+
+    const fetchRecentMovies = async () => {
+        try {
+            const response = await fetch('/admin/api/recent-izisobanuye-movies');
+            const data = await response.json();
+            setRecentMovies(data);
+        } catch (error) {
+            console.error('Error fetching recent movies:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return <p className="text-sm text-gray-400">Loading recent movies...</p>;
+    }
+
+    if (recentMovies.length === 0) {
+        return <p className="text-sm text-gray-400">No recent movies found</p>;
+    }
+
+    return (
+        <>
+            {recentMovies.slice(0, 5).map((movie: any, index: number) => (
+                <div key={movie.id} className="flex items-center space-x-3">
+                    <div className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-gray-700 text-xs sm:text-sm font-bold flex-shrink-0">
+                        {index + 1}
+                    </div>
+                    {movie.poster ? (
+                        <img
+                            src={movie.poster}
+                            alt={movie.title}
+                            className="h-8 w-6 sm:h-10 sm:w-7 rounded object-cover flex-shrink-0"
+                        />
+                    ) : (
+                        <div className="h-8 w-6 sm:h-10 sm:w-7 rounded bg-gray-600 flex items-center justify-center text-xs text-gray-400 flex-shrink-0">
+                            No Image
+                        </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{movie.title}</p>
+                        <p className="text-xs text-gray-400">{movie.rating} ★ • {new Date(movie.created_at).toLocaleDateString()}</p>
+                    </div>
+                </div>
+            ))}
         </>
     );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage, router } from '@inertiajs/react';
+import { useAuth } from '@/contexts/AuthContext';
 import { AdminSidebar } from '@/components/admin-sidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,6 @@ import { Comment } from '@/types';
 import {
     Search,
     MessageSquare,
-    Eye,
     Reply,
     Trash2,
     ArrowUpDown,
@@ -19,20 +19,17 @@ import {
     Filter,
     Calendar,
     User,
-    Film,
     Check,
-    X,
-    Flag,
     ChevronLeft,
     ChevronRight
 } from 'lucide-react';
 import axios from 'axios';
 
 export default function AdminComments() {
-    const [activeTab, setActiveTab] = useState<'all' | 'flagged'>('all');
+    const { user, loading: authLoading } = useAuth();
+    const { url } = usePage();
+
     const [searchTerm, setSearchTerm] = useState('');
-    const [movieFilter, setMovieFilter] = useState('all');
-    const [statusFilter, setStatusFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState('all');
     const [sortBy, setSortBy] = useState('created_at');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -44,10 +41,13 @@ export default function AdminComments() {
     const [loading, setLoading] = useState(true);
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
+    const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved'>('all');
+    const [movieTypeTab, setMovieTypeTab] = useState<'all' | 'izisobanuye' | 'izidasobanuye'>('all');
+
 
     useEffect(() => {
         fetchComments();
-    }, [currentPage, searchTerm, movieFilter, statusFilter, dateFilter, sortBy, sortOrder]);
+    }, [currentPage, searchTerm, activeTab, movieTypeTab, dateFilter, sortBy, sortOrder]);
 
     const fetchComments = async () => {
         setLoading(true);
@@ -56,8 +56,8 @@ export default function AdminComments() {
                 page: currentPage.toString(),
                 per_page: itemsPerPage.toString(),
                 search: searchTerm,
-                movie_filter: movieFilter,
-                status_filter: statusFilter,
+                status_filter: activeTab,
+                movie_type_filter: movieTypeTab,
                 date_filter: dateFilter,
                 sort_by: sortBy,
                 sort_order: sortOrder,
@@ -74,12 +74,7 @@ export default function AdminComments() {
     };
 
     // Filter comments for tabs
-    const filteredComments = comments.filter(comment => {
-        if (activeTab === 'flagged' && comment.status !== 'flagged') {
-            return false;
-        }
-        return true;
-    });
+    const filteredComments = comments;
 
     const handleSort = (column: string) => {
         if (sortBy === column) {
@@ -139,16 +134,6 @@ export default function AdminComments() {
         }
     };
 
-    const handleRejectComment = async (commentId: number) => {
-        try {
-            await axios.patch(`/admin/api/comments/${commentId}/status`, {
-                status: 'flagged',
-            });
-            fetchComments();
-        } catch (error) {
-            console.error('Error rejecting comment:', error);
-        }
-    };
 
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
@@ -172,10 +157,6 @@ export default function AdminComments() {
         setCurrentPage(1);
     };
 
-    const handleTabChange = (tab: 'all' | 'flagged') => {
-        setActiveTab(tab);
-        setCurrentPage(1);
-    };
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -185,14 +166,11 @@ export default function AdminComments() {
     const getStatusBadge = (status: string) => {
         const variants = {
             'approved': 'bg-green-600 hover:bg-green-700',
-            'pending': 'bg-yellow-600 hover:bg-yellow-700',
-            'flagged': 'bg-red-600 hover:bg-red-700'
+            'pending': 'bg-yellow-600 hover:bg-yellow-700'
         };
         return variants[status as keyof typeof variants] || 'bg-gray-600 hover:bg-gray-700';
     };
 
-    const movies = Array.from(new Set(comments.map(comment => comment.movie_id.toString())));
-    const statuses = ['pending', 'approved', 'flagged'];
 
     return (
         <>
@@ -210,30 +188,36 @@ export default function AdminComments() {
                     </div>
 
                     {/* Tabs */}
-                    <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-1 mb-6 bg-gray-800 p-1 rounded-lg">
+                    <div className="flex space-x-1 mb-6 bg-gray-800 p-1 rounded-lg">
                         <button
-                            onClick={() => handleTabChange('all')}
+                            onClick={() => setActiveTab('all')}
                             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                                 activeTab === 'all'
-                                    ? 'bg-red-600 text-white'
-                                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-gray-300 hover:text-white hover:bg-gray-700'
                             }`}
                         >
-                            <MessageSquare className="h-4 w-4 inline mr-2" />
-                            <span className="hidden sm:inline">All Comments ({totalItems})</span>
-                            <span className="sm:hidden">All ({totalItems})</span>
+                            All Comments
                         </button>
                         <button
-                            onClick={() => handleTabChange('flagged')}
+                            onClick={() => setActiveTab('pending')}
                             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                                activeTab === 'flagged'
-                                    ? 'bg-red-600 text-white'
-                                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                activeTab === 'pending'
+                                    ? 'bg-yellow-600 text-white'
+                                    : 'text-gray-300 hover:text-white hover:bg-gray-700'
                             }`}
                         >
-                            <Flag className="h-4 w-4 inline mr-2" />
-                            <span className="hidden sm:inline">Flagged Comments ({filteredComments.filter(c => c.status === 'flagged').length})</span>
-                            <span className="sm:hidden">Flagged ({filteredComments.filter(c => c.status === 'flagged').length})</span>
+                            Pending
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('approved')}
+                            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                                activeTab === 'approved'
+                                    ? 'bg-green-600 text-white'
+                                    : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                            }`}
+                        >
+                            Approved
                         </button>
                     </div>
 
@@ -249,33 +233,7 @@ export default function AdminComments() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <Select value={movieFilter} onValueChange={handleFilterChange(setMovieFilter)}>
-                                <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
-                                    <Film className="h-4 w-4 mr-2" />
-                                    <SelectValue placeholder="Movie" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-gray-800 border-gray-700">
-                                    <SelectItem value="all" className="text-white hover:bg-gray-700">All Movies</SelectItem>
-                                    {movies.map(movie => (
-                                        <SelectItem key={movie} value={movie} className="text-white hover:bg-gray-700">{movie}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            <Select value={statusFilter} onValueChange={handleFilterChange(setStatusFilter)}>
-                                <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
-                                    <Filter className="h-4 w-4 mr-2" />
-                                    <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-gray-800 border-gray-700">
-                                    <SelectItem value="all" className="text-white hover:bg-gray-700">All Status</SelectItem>
-                                    {statuses.map(status => (
-                                        <SelectItem key={status} value={status} className="text-white hover:bg-gray-700">{status}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
+                        <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
                             <Select value={dateFilter} onValueChange={handleFilterChange(setDateFilter)}>
                                 <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
                                     <Calendar className="h-4 w-4 mr-2" />
@@ -291,32 +249,43 @@ export default function AdminComments() {
                         </div>
                     </div>
 
-                    {/* Sort Options */}
-                    <div className="flex flex-wrap gap-2 mb-6">
-                        <span className="text-gray-400 mr-2">Sort by:</span>
-                        {[
-                            { key: 'created_at', label: 'Date' },
-                            { key: 'name', label: 'User Name' },
-                            { key: 'movie_id', label: 'Movie ID' }
-                        ].map(({ key, label }) => (
-                            <Button
-                                key={key}
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleSort(key)}
-                                className={`border-gray-600 text-gray-300 hover:bg-gray-700 flex items-center space-x-1 ${
-                                    sortBy === key ? 'bg-gray-700' : ''
-                                }`}
-                            >
-                                <span>{label}</span>
-                                {getSortIcon(key)}
-                            </Button>
-                        ))}
+                    {/* Movie Type Tabs */}
+                    <div className="flex space-x-1 mb-6 bg-gray-800 p-1 rounded-lg">
+                        <button
+                            onClick={() => setMovieTypeTab('all')}
+                            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                                movieTypeTab === 'all'
+                                    ? 'bg-red-600 text-white'
+                                    : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                            }`}
+                        >
+                            All Comments
+                        </button>
+                        <button
+                            onClick={() => setMovieTypeTab('izisobanuye')}
+                            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                                movieTypeTab === 'izisobanuye'
+                                    ? 'bg-red-600 text-white'
+                                    : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                            }`}
+                        >
+                            Izisobanuye
+                        </button>
+                        <button
+                            onClick={() => setMovieTypeTab('izidasobanuye')}
+                            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                                movieTypeTab === 'izidasobanuye'
+                                    ? 'bg-red-600 text-white'
+                                    : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                            }`}
+                        >
+                            Izidasobanuye
+                        </button>
                     </div>
                 </div>
 
                 {/* Comments List */}
-                <div className="space-y-4">
+                <div className="space-y-2">
                     {loading ? (
                         <div className="text-center py-8">
                             <p className="text-gray-400">Loading comments...</p>
@@ -324,8 +293,8 @@ export default function AdminComments() {
                     ) : (
                         filteredComments.map((comment) => (
                         <Card key={comment.id} className="bg-gray-800 border-gray-700">
-                            <CardContent className="p-4 sm:p-6">
-                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                            <CardContent className="p-2 sm:p-3">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-2">
                                     <div className="flex items-start space-x-4 flex-1">
                                         <div className="flex-shrink-0">
                                             <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
@@ -336,28 +305,15 @@ export default function AdminComments() {
                                             <div className="flex flex-wrap items-center gap-2 mb-1">
                                                 <span className="font-medium text-white">{comment.name}</span>
                                                 <span className="text-gray-400 hidden sm:inline">•</span>
-                                                <span className="text-sm text-gray-400">Movie {comment.movie_id}</span>
+                                                <span className="text-sm font-medium text-blue-400">{comment.movie?.title || `Movie ID: ${comment.movie_id}`}</span>
                                                 <span className="text-gray-400 hidden sm:inline">•</span>
                                                 <span className="text-sm text-gray-400">{formatDate(comment.created_at)}</span>
                                             </div>
-                                            <p className="text-gray-300 mb-3 break-words">{comment.message}</p>
-
-                                            {/* Status Badge */}
-                                            <Badge className={getStatusBadge(comment.status)}>
-                                                {comment.status}
-                                            </Badge>
+                                            <p className="text-gray-300 mb-1 break-words">{comment.message}</p>
                                         </div>
                                     </div>
 
                                     <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="border-gray-600 text-gray-300 hover:bg-gray-700 flex-1 sm:flex-none"
-                                        >
-                                            <Eye className="h-4 w-4 mr-1" />
-                                            <span className="hidden sm:inline">View</span>
-                                        </Button>
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -367,28 +323,6 @@ export default function AdminComments() {
                                             <Reply className="h-4 w-4 mr-1" />
                                             <span className="hidden sm:inline">Reply</span>
                                         </Button>
-                                        {comment.status !== 'approved' && (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleApproveComment(comment.id)}
-                                                className="border-green-600 text-green-400 hover:bg-green-600 hover:text-white flex-1 sm:flex-none"
-                                            >
-                                                <Check className="h-4 w-4 mr-1" />
-                                                <span className="hidden sm:inline">Approve</span>
-                                            </Button>
-                                        )}
-                                        {comment.status !== 'flagged' && (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleRejectComment(comment.id)}
-                                                className="border-yellow-600 text-yellow-400 hover:bg-yellow-600 hover:text-white flex-1 sm:flex-none"
-                                            >
-                                                <X className="h-4 w-4 mr-1" />
-                                                <span className="hidden sm:inline">Reject</span>
-                                            </Button>
-                                        )}
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -403,7 +337,7 @@ export default function AdminComments() {
 
                                 {/* Replies */}
                                 {comment.replies && comment.replies.length > 0 && (
-                                    <div className="ml-14 space-y-3 mb-4">
+                                    <div className="ml-14 space-y-1 mb-2">
                                         {comment.replies.map((reply) => (
                                             <div key={reply.id} className="bg-gray-700 rounded-lg p-3">
                                                 <div className="flex items-center space-x-2 mb-1">
@@ -418,7 +352,7 @@ export default function AdminComments() {
 
                                 {/* Reply Form */}
                                 {replyingTo === comment.id && (
-                                    <div className="ml-14 mt-4">
+                                    <div className="ml-14 mt-2">
                                         <div className="bg-gray-700 rounded-lg p-4">
                                             <textarea
                                                 placeholder="Type your reply..."
@@ -515,60 +449,86 @@ export default function AdminComments() {
                 )}
 
                 {/* Summary Stats */}
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Card className="bg-gray-800 border-gray-700">
                         <CardContent className="p-4">
                             <div className="flex items-center space-x-2">
                                 <MessageSquare className="h-5 w-5 text-blue-400" />
                                 <div>
                                     <div className="text-2xl font-bold">{totalItems}</div>
-                                    <div className="text-sm text-gray-400">Total Comments</div>
+                                    <div className="text-sm text-gray-400">
+                                        {activeTab === 'all' ? 'Total Comments' :
+                                         activeTab === 'pending' ? 'Pending Comments' :
+                                         'Approved Comments'}
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-gray-800 border-gray-700">
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                <div>
-                                    <div className="text-2xl font-bold">
-                                        {filteredComments.filter(c => c.status === 'approved').length}
+                    {activeTab === 'all' && (
+                        <>
+                            <Card className="bg-gray-800 border-gray-700">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                        <div>
+                                            <div className="text-2xl font-bold">
+                                                {comments.filter(c => c.status === 'approved').length}
+                                            </div>
+                                            <div className="text-sm text-gray-400">Approved</div>
+                                        </div>
                                     </div>
-                                    <div className="text-sm text-gray-400">Approved</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                </CardContent>
+                            </Card>
 
-                    <Card className="bg-gray-800 border-gray-700">
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                                <div>
-                                    <div className="text-2xl font-bold">
-                                        {filteredComments.filter(c => c.status === 'pending').length}
+                            <Card className="bg-gray-800 border-gray-700">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                        <div>
+                                            <div className="text-2xl font-bold">
+                                                {comments.filter(c => c.status === 'pending').length}
+                                            </div>
+                                            <div className="text-sm text-gray-400">Pending</div>
+                                        </div>
                                     </div>
-                                    <div className="text-sm text-gray-400">Pending</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                </CardContent>
+                            </Card>
+                        </>
+                    )}
 
-                    <Card className="bg-gray-800 border-gray-700">
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                                <div>
-                                    <div className="text-2xl font-bold">
-                                        {filteredComments.filter(c => c.status === 'flagged').length}
+                    {activeTab !== 'all' && (
+                        <>
+                            <Card className="bg-gray-800 border-gray-700">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center space-x-2">
+                                        <Reply className="h-5 w-5 text-green-400" />
+                                        <div>
+                                            <div className="text-2xl font-bold">
+                                                {comments.filter(c => c.replies && c.replies.length > 0).length}
+                                            </div>
+                                            <div className="text-sm text-gray-400">With Replies</div>
+                                        </div>
                                     </div>
-                                    <div className="text-sm text-gray-400">Flagged</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="bg-gray-800 border-gray-700">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center space-x-2">
+                                        <User className="h-5 w-5 text-purple-400" />
+                                        <div>
+                                            <div className="text-2xl font-bold">
+                                                {new Set(comments.map(c => c.name)).size}
+                                            </div>
+                                            <div className="text-sm text-gray-400">Unique Users</div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </>
+                    )}
                 </div>
             </div>
         </>

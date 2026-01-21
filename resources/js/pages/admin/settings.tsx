@@ -29,9 +29,10 @@ import {
     Lock,
     FileText,
     Crown,
-    X
+    X,
+    LoaderCircle
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAnnouncement } from '@/hooks/use-announcement';
 
 export default function AdminSettings() {
@@ -42,9 +43,99 @@ export default function AdminSettings() {
     const [announcementDismissible, setAnnouncementDismissible] = useState(dismissible);
     const [announcementScroll, setAnnouncementScroll] = useState(scroll);
 
+    // Hero state
+    const [hero, setHero] = useState(null);
+    const [heroTitle, setHeroTitle] = useState('');
+    const [heroOverview, setHeroOverview] = useState('');
+    const [heroGenre, setHeroGenre] = useState('');
+    const [heroReleaseYear, setHeroReleaseYear] = useState('');
+    const [heroWatchNowUrl, setHeroWatchNowUrl] = useState('');
+    const [heroWatchTrailerUrl, setHeroWatchTrailerUrl] = useState('');
+    const [heroPosterFile, setHeroPosterFile] = useState<File | null>(null);
+    const [heroPosterPreview, setHeroPosterPreview] = useState('');
+    const [savingHero, setSavingHero] = useState(false);
+
+    useEffect(() => {
+        if (activeSection === 'hero') {
+            fetchHero();
+        }
+    }, [activeSection]);
+
+    const fetchHero = async () => {
+        try {
+            const response = await fetch('/api/hero');
+            if (response.ok) {
+                const data = await response.json();
+                setHero(data);
+                setHeroTitle(data.title || '');
+                setHeroOverview(data.overview || '');
+                setHeroGenre(data.genre || '');
+                setHeroReleaseYear(data.release_year?.toString() || '');
+                setHeroWatchNowUrl(data.watch_now_url || '');
+                setHeroWatchTrailerUrl(data.watch_trailer_url || '');
+                if (data.poster_path) {
+                    setHeroPosterPreview('/' + data.poster_path);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching hero:', error);
+        }
+    };
+
+    const handleHeroPosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setHeroPosterFile(file);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setHeroPosterPreview(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSaveHero = async () => {
+        setSavingHero(true);
+        try {
+            const formData = new FormData();
+            formData.append('title', heroTitle);
+            formData.append('overview', heroOverview);
+            formData.append('genre', heroGenre);
+            formData.append('release_year', heroReleaseYear);
+            formData.append('watch_now_url', heroWatchNowUrl);
+            formData.append('watch_trailer_url', heroWatchTrailerUrl);
+            if (heroPosterFile) {
+                formData.append('poster_file', heroPosterFile);
+            }
+
+            const response = await fetch('/admin/api/hero', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: formData,
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setHero(data);
+                alert('Hero updated successfully!');
+            } else {
+                const errorData = await response.json();
+                alert('Error saving hero: ' + (errorData.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error saving hero:', error);
+            alert('Error saving hero');
+        } finally {
+            setSavingHero(false);
+        }
+    };
+
     const sections = [
         { id: 'profile', label: 'Profile & Account', icon: User },
         { id: 'system', label: 'System Settings', icon: SettingsIcon },
+        { id: 'hero', label: 'Hero Management', icon: Star },
         { id: 'announcements', label: 'Announcements', icon: Bell },
         { id: 'movies', label: 'Movie Management', icon: Film },
         { id: 'subscription', label: 'Subscription Settings', icon: CreditCard },
@@ -253,6 +344,143 @@ export default function AdminSettings() {
                                     <Button className="bg-red-600 hover:bg-red-700">
                                         <Save className="h-4 w-4 mr-2" />
                                         Save System Settings
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+
+                    {/* Hero Management */}
+                    {activeSection === 'hero' && (
+                        <div className="space-y-6">
+                            <Card className="border-gray-700 bg-gray-800">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center space-x-2">
+                                        <Film className="h-5 w-5" />
+                                        <span>Hero Management</span>
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="hero-title">Movie Title *</Label>
+                                            <Input
+                                                id="hero-title"
+                                                value={heroTitle}
+                                                onChange={(e) => setHeroTitle(e.target.value)}
+                                                placeholder="Enter movie title"
+                                                className="bg-gray-700 border-gray-600"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="hero-genre">Genre</Label>
+                                            <Input
+                                                id="hero-genre"
+                                                value={heroGenre}
+                                                onChange={(e) => setHeroGenre(e.target.value)}
+                                                placeholder="e.g., Action, Drama"
+                                                className="bg-gray-700 border-gray-600"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="hero-release-year">Release Year</Label>
+                                            <Input
+                                                id="hero-release-year"
+                                                type="number"
+                                                value={heroReleaseYear}
+                                                onChange={(e) => setHeroReleaseYear(e.target.value)}
+                                                placeholder="e.g., 2024"
+                                                className="bg-gray-700 border-gray-600"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="hero-watch-now-url">Watch Now URL</Label>
+                                            <Input
+                                                id="hero-watch-now-url"
+                                                value={heroWatchNowUrl}
+                                                onChange={(e) => setHeroWatchNowUrl(e.target.value)}
+                                                placeholder="https://..."
+                                                className="bg-gray-700 border-gray-600"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="hero-watch-trailer-url">Watch Trailer URL</Label>
+                                        <Input
+                                            id="hero-watch-trailer-url"
+                                            value={heroWatchTrailerUrl}
+                                            onChange={(e) => setHeroWatchTrailerUrl(e.target.value)}
+                                            placeholder="https://..."
+                                            className="bg-gray-700 border-gray-600"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="hero-overview">Overview</Label>
+                                        <textarea
+                                            id="hero-overview"
+                                            value={heroOverview}
+                                            onChange={(e) => setHeroOverview(e.target.value)}
+                                            placeholder="Enter movie overview/description"
+                                            rows={4}
+                                            className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="hero-poster">Poster Image</Label>
+                                        <div className="flex items-center space-x-4">
+                                            <Input
+                                                id="hero-poster"
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleHeroPosterChange}
+                                                className="hidden"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => document.getElementById('hero-poster')?.click()}
+                                                className="border-gray-600"
+                                            >
+                                                <Upload className="h-4 w-4 mr-2" />
+                                                Choose Poster
+                                            </Button>
+                                            {heroPosterPreview && (
+                                                <div className="w-20 h-28 bg-gray-100 rounded overflow-hidden">
+                                                    <img
+                                                        src={heroPosterPreview}
+                                                        alt="Poster preview"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-gray-400">
+                                            Upload a poster image (JPG, PNG, GIF, WebP). Max 5MB.
+                                        </p>
+                                    </div>
+
+                                    <Button
+                                        className="bg-red-600 hover:bg-red-700"
+                                        onClick={handleSaveHero}
+                                        disabled={savingHero}
+                                    >
+                                        {savingHero ? (
+                                            <>
+                                                <LoaderCircle className="h-4 w-4 mr-2 animate-spin" />
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="h-4 w-4 mr-2" />
+                                                Save Hero
+                                            </>
+                                        )}
                                     </Button>
                                 </CardContent>
                             </Card>

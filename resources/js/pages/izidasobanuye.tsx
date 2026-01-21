@@ -6,28 +6,33 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAnnouncement } from '@/hooks/use-announcement';
 import { Movie } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import axios from 'axios';
 import {
     ChevronLeft,
     ChevronRight,
     Film,
+    Heart,
     Home,
-    LogOut,
+    Menu,
     Search,
     Star,
-    User,
-    Menu,
     X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-export default function Izidasobanuye() {
+interface Props {}
+
+export default function Izidasobanuye({}: Props) {
     const [search, setSearch] = useState('');
     const [selectedGenre, setSelectedGenre] = useState('All');
-    const [movies, setMovies] = useState<Movie[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [heroMovie, setHeroMovie] = useState<Movie | null>(null);
-    const [heroTrailer, setHeroTrailer] = useState<string | null>(null);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { message, backgroundColor, dismissible, scroll } = useAnnouncement();
+    const { url } = usePage();
+
+    const [popularMovies, setPopularMovies] = useState<Movie[]>([]);
     const [actionMovies, setActionMovies] = useState<Movie[]>([]);
     const [horrorMovies, setHorrorMovies] = useState<Movie[]>([]);
     const [comedyMovies, setComedyMovies] = useState<Movie[]>([]);
@@ -35,145 +40,131 @@ export default function Izidasobanuye() {
     const [romanceMovies, setRomanceMovies] = useState<Movie[]>([]);
     const [animationMovies, setAnimationMovies] = useState<Movie[]>([]);
     const [thrillerMovies, setThrillerMovies] = useState<Movie[]>([]);
-    const [sciFiMovies, setSciFiMovies] = useState<Movie[]>([]);
     const [crimeMovies, setCrimeMovies] = useState<Movie[]>([]);
     const [adventureMovies, setAdventureMovies] = useState<Movie[]>([]);
     const [fantasyMovies, setFantasyMovies] = useState<Movie[]>([]);
     const [familyMovies, setFamilyMovies] = useState<Movie[]>([]);
-    const [searchResults, setSearchResults] = useState<Movie[]>([]);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const { message, backgroundColor, dismissible, scroll } = useAnnouncement();
-    const { url } = usePage();
 
-    const genreMap: { [key: number]: string } = {
-        28: 'Action',
-        27: 'Horror',
-        35: 'Comedy',
-        18: 'Drama',
-        10749: 'Romance',
-        16: 'Animation',
-        53: 'Thriller',
-        878: 'Science Fiction',
-        80: 'Crime',
-        12: 'Adventure',
-        14: 'Fantasy',
-        10751: 'Family',
-    };
-
-    // Fetch popular movies from TMDB API
+    // Fetch movies from API
     useEffect(() => {
-        fetch('/api/movies/popular')
-            .then((res) => res.json())
-            .then((data) => {
-                const transformed = data.results.slice(0, 20).map((m: any) => ({
-                    id: m.id,
-                    title: m.title,
-                    poster: m.poster_path
-                        ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
-                        : '',
-                    rating: parseFloat(m.vote_average.toFixed(1)),
-                    genre: m.genre_ids ? m.genre_ids.slice(0, 2).map((id: number) => genreMap[id] || '').filter(Boolean) : [],
-                    description: m.overview,
-                    releaseYear: m.release_date
-                        ? new Date(m.release_date).getFullYear()
-                        : 0,
-                    duration: null,
-                    category: 'popular',
-                }));
-                setMovies(transformed);
-                setHeroMovie(transformed[0] || null);
-                setLoading(false);
-            })
-            .catch(() => setLoading(false));
-    }, []);
-
-    // Fetch genre movies
-    useEffect(() => {
-        const fetchGenreMovies = async (endpoint: string, setter: (movies: Movie[]) => void) => {
+        const fetchMovies = async () => {
             try {
-                const res = await fetch(endpoint);
-                const data = await res.json();
-                const transformed = data.results.slice(0, 20).map((m: any) => ({
-                    id: m.id,
-                    title: m.title,
-                    poster: m.poster_path
-                        ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
-                        : '',
-                    rating: parseFloat(m.vote_average.toFixed(1)),
-                    genre: m.genre_ids ? m.genre_ids.slice(0, 2).map((id: number) => genreMap[id] || '').filter(Boolean) : [],
-                    description: m.overview,
-                    releaseYear: m.release_date
-                        ? new Date(m.release_date).getFullYear()
-                        : 0,
-                    duration: null,
-                    category: 'genre',
-                }));
-                setter(transformed);
+                const [
+                    popularRes,
+                    actionRes,
+                    horrorRes,
+                    comedyRes,
+                    dramaRes,
+                    romanceRes,
+                    animationRes,
+                    thrillerRes,
+                    crimeRes,
+                    adventureRes,
+                    fantasyRes,
+                    familyRes,
+                ] = await Promise.all([
+                    axios.get('/api/movies/popular'),
+                    axios.get('/api/movies/genre/action'),
+                    axios.get('/api/movies/genre/horror'),
+                    axios.get('/api/movies/genre/comedy'),
+                    axios.get('/api/movies/genre/drama'),
+                    axios.get('/api/movies/genre/romance'),
+                    axios.get('/api/movies/genre/animation'),
+                    axios.get('/api/movies/genre/thriller'),
+                    axios.get('/api/movies/genre/crime'),
+                    axios.get('/api/movies/genre/adventure'),
+                    axios.get('/api/movies/genre/fantasy'),
+                    axios.get('/api/movies/genre/family'),
+                ]);
+
+                const genreMap: { [key: number]: string } = {
+                    28: 'Action',
+                    27: 'Horror',
+                    35: 'Comedy',
+                    18: 'Drama',
+                    10749: 'Romance',
+                    16: 'Animation',
+                    53: 'Thriller',
+                    878: 'Science Fiction',
+                    80: 'Crime',
+                    12: 'Adventure',
+                    14: 'Fantasy',
+                    10751: 'Family',
+                };
+
+                const transformMovies = (data: any) => {
+                    if (data.results) {
+                        return data.results.slice(0, 10).map((movie: any) => ({
+                            id: movie.id,
+                            title: movie.title,
+                            poster: movie.poster_path
+                                ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                                : '/Images/default-movie.jpg',
+                            rating: movie.vote_average || 0,
+                            genre: (movie.genre_ids || []).map(
+                                (id: number) => genreMap[id] || 'Unknown',
+                            ),
+                            description: movie.overview || '',
+                            releaseYear: movie.release_date
+                                ? new Date(movie.release_date).getFullYear()
+                                : new Date().getFullYear(),
+                            duration: 0,
+                            interpreter: undefined,
+                            trailer: undefined,
+                            poster_file_path: undefined,
+                            movie_file_path: undefined,
+                            category: 'api',
+                        }));
+                    }
+                    return [];
+                };
+
+                setPopularMovies(transformMovies(popularRes.data));
+                setActionMovies(transformMovies(actionRes.data));
+                setHorrorMovies(transformMovies(horrorRes.data));
+                setComedyMovies(transformMovies(comedyRes.data));
+                setDramaMovies(transformMovies(dramaRes.data));
+                setRomanceMovies(transformMovies(romanceRes.data));
+                setAnimationMovies(transformMovies(animationRes.data));
+                setThrillerMovies(transformMovies(thrillerRes.data));
+                setCrimeMovies(transformMovies(crimeRes.data));
+                setAdventureMovies(transformMovies(adventureRes.data));
+                setFantasyMovies(transformMovies(fantasyRes.data));
+                setFamilyMovies(transformMovies(familyRes.data));
+
+                // Set hero movie from popular
+                if (
+                    popularRes.data.results &&
+                    popularRes.data.results.length > 0
+                ) {
+                    const hero = popularRes.data.results[0];
+                    setHeroMovie({
+                        id: hero.id,
+                        title: hero.title,
+                        poster: hero.poster_path
+                            ? `https://image.tmdb.org/t/p/w500${hero.poster_path}`
+                            : '/Images/default-movie.jpg',
+                        rating: hero.vote_average || 0,
+                        genre: hero.genre_ids || [],
+                        description: hero.overview || '',
+                        releaseYear: hero.release_date
+                            ? new Date(hero.release_date).getFullYear()
+                            : new Date().getFullYear(),
+                        duration: 0,
+                        interpreter: undefined,
+                        trailer: undefined,
+                        poster_file_path: undefined,
+                        movie_file_path: undefined,
+                        category: 'api',
+                    });
+                }
             } catch (error) {
-                setter([]);
+                console.error('Error fetching movies:', error);
             }
         };
 
-        fetchGenreMovies('/api/movies/genre/action', setActionMovies);
-        fetchGenreMovies('/api/movies/genre/horror', setHorrorMovies);
-        fetchGenreMovies('/api/movies/genre/comedy', setComedyMovies);
-        fetchGenreMovies('/api/movies/genre/drama', setDramaMovies);
-        fetchGenreMovies('/api/movies/genre/romance', setRomanceMovies);
-        fetchGenreMovies('/api/movies/genre/animation', setAnimationMovies);
-        fetchGenreMovies('/api/movies/genre/thriller', setThrillerMovies);
-        fetchGenreMovies('/api/movies/genre/sci-fi', setSciFiMovies);
-        fetchGenreMovies('/api/movies/genre/crime', setCrimeMovies);
-        fetchGenreMovies('/api/movies/genre/adventure', setAdventureMovies);
-        fetchGenreMovies('/api/movies/genre/fantasy', setFantasyMovies);
-        fetchGenreMovies('/api/movies/genre/family', setFamilyMovies);
+        fetchMovies();
     }, []);
-
-    // Fetch hero trailer
-    useEffect(() => {
-        if (heroMovie) {
-            fetch(`/api/movies/${heroMovie.id}`)
-                .then((res) => res.json())
-                .then((data) => {
-                    const videos = data.videos?.results || [];
-                    const trailer = videos.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube');
-                    setHeroTrailer(trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null);
-                })
-                .catch(() => setHeroTrailer(null));
-        }
-    }, [heroMovie]);
-
-    // Fetch search results with debounce
-    useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            if (search.trim()) {
-                fetch(`/api/movies/search?q=${encodeURIComponent(search.trim())}`)
-                    .then((res) => res.json())
-                    .then((data) => {
-                        const transformed = data.results.slice(0, 20).map((m: any) => ({
-                            id: m.id,
-                            title: m.title,
-                            poster: m.poster_path
-                                ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
-                                : '',
-                            rating: parseFloat(m.vote_average.toFixed(1)),
-                            genre: m.genre_ids ? m.genre_ids.slice(0, 2).map((id: number) => genreMap[id] || '').filter(Boolean) : [],
-                            description: m.overview,
-                            releaseYear: m.release_date
-                                ? new Date(m.release_date).getFullYear()
-                                : 0,
-                            duration: null,
-                            category: 'search',
-                        }));
-                        setSearchResults(transformed);
-                    })
-                    .catch(() => setSearchResults([]));
-            } else {
-                setSearchResults([]);
-            }
-        }, 300); // 300ms debounce
-
-        return () => clearTimeout(timeoutId);
-    }, [search]);
 
     // Read URL parameters on component mount
     useEffect(() => {
@@ -184,39 +175,58 @@ export default function Izidasobanuye() {
         }
     }, []);
 
+    const allMovies = [
+        ...popularMovies,
+        ...actionMovies,
+        ...horrorMovies,
+        ...comedyMovies,
+        ...dramaMovies,
+        ...romanceMovies,
+        ...animationMovies,
+        ...thrillerMovies,
+        ...crimeMovies,
+        ...adventureMovies,
+        ...fantasyMovies,
+        ...familyMovies,
+    ];
+
     const filteredMovies = useMemo(() => {
-        if (loading) return [];
-        return movies.filter((movie) => {
+        return allMovies.filter((movie) => {
             const matchesSearch =
                 movie.title.toLowerCase().includes(search.toLowerCase()) ||
                 movie.description.toLowerCase().includes(search.toLowerCase());
 
-            const matchesGenre = selectedGenre === 'All' || movie.genre.includes(selectedGenre);
+            const matchesGenre =
+                selectedGenre === 'All' || movie.genre.includes(selectedGenre);
 
             return matchesSearch && matchesGenre;
         });
-    }, [search, selectedGenre, movies, loading]);
+    }, [search, selectedGenre, allMovies]);
 
-    const displayMovies = search.trim() ? searchResults : filteredMovies;
+    const displayMovies = filteredMovies;
 
     return (
         <>
-            <Head title="Izidasobanuye - Uninterpreted Movies" />
+            <Head title="Izisobanuye - Interpreted Movies" />
 
             {/* Professional Navbar */}
             <nav className="sticky top-0 z-50 border-b border-gray-800 bg-gray-900">
                 <div className="container mx-auto px-4">
                     <div className="flex h-16 items-center justify-between">
                         <div className="flex items-center space-x-8">
-                            <Link href="/" className="flex items-center" preserveScroll>
+                            <Link
+                                href="/"
+                                className="flex items-center"
+                                preserveScroll
+                            >
                                 <img
                                     src="/Images/logo.png"
                                     alt="Streaminga"
-                                    className="h-22 w-auto"
+                                    className="h-22 w-auto pt-2"
                                 />
                             </Link>
                             <div className="hidden space-x-6 md:flex">
-                                <Link
+                                {/* <Link
                                     href="/izisobanuye"
                                     preserveScroll
                                     className={
@@ -227,7 +237,7 @@ export default function Izidasobanuye() {
                                 >
                                     <Home className="mr-1 inline h-4 w-4" />
                                     izisobanuye
-                                </Link>
+                                </Link> */}
                                 <Link
                                     href="/izidasobanuye"
                                     preserveScroll
@@ -259,12 +269,12 @@ export default function Izidasobanuye() {
                                     className="w-64 rounded-full border-gray-700 bg-gray-800 py-2 pr-4 pl-10 text-white placeholder-gray-400 focus:border-transparent focus:ring-2 focus:ring-red-500"
                                 />
                             </form>
-                            <select
+                            {/* <select
                                 value={selectedGenre}
                                 onChange={(e) => setSelectedGenre(e.target.value)}
                                 className="h-10 w-32 rounded border-gray-600 bg-gray-700 px-3 text-sm text-white"
                             >
-                                <option value="All">All Genres</option>
+                                <option value="All">All Genre</option>
                                 <option value="Action">Action</option>
                                 <option value="Horror">Horror</option>
                                 <option value="Comedy">Comedy</option>
@@ -277,7 +287,7 @@ export default function Izidasobanuye() {
                                 <option value="Adventure">Adventure</option>
                                 <option value="Fantasy">Fantasy</option>
                                 <option value="Family">Family</option>
-                            </select>
+                            </select> */}
                         </div>
 
                         <div className="flex items-center space-x-4">
@@ -285,110 +295,124 @@ export default function Izidasobanuye() {
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                                    onClick={() =>
+                                        setIsMobileMenuOpen(!isMobileMenuOpen)
+                                    }
                                     className="text-white"
                                 >
-                                    {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                                    {isMobileMenuOpen ? (
+                                        <X className="h-5 w-5" />
+                                    ) : (
+                                        <Menu className="h-5 w-5" />
+                                    )}
                                 </Button>
                             </div>
                             <Link
-                                href="/register"
+                                href="/donate"
                                 preserveScroll
-                                className="hidden sm:inline-block text-gray-300 transition-colors hover:text-white"
+                                className="rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700"
                             >
-                                <User className="mr-1 inline h-4 w-4" />
-                                Sign Up
-                            </Link>
-                            <Link
-                                href="/login"
-                                preserveScroll
-                                className="rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700"
-                            >
-                                <LogOut className="mr-1 inline h-4 w-4" />
-                                Login
+                                <Heart className="mr-1 inline h-4 w-4" />
+                                Donate
                             </Link>
                         </div>
                     </div>
-                </div>
 
-                {/* Mobile Menu */}
-                {isMobileMenuOpen && (
-                    <div className="md:hidden border-t border-gray-800 py-4">
-                        <div className="space-y-4">
-                            <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                }}
-                                className="relative"
-                            >
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                                <Input
-                                    type="text"
-                                    placeholder="Search movies..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="pl-10 pr-4 py-2 bg-gray-800 border-gray-700 text-white placeholder-gray-400 rounded-lg"
-                                />
-                            </form>
-                            <select
-                                value={selectedGenre}
-                                onChange={(e) => setSelectedGenre(e.target.value)}
-                                className="w-full h-10 rounded border-gray-600 bg-gray-700 px-3 text-sm text-white"
-                            >
-                                <option value="All">All Genres</option>
-                                <option value="Action">Action</option>
-                                <option value="Horror">Horror</option>
-                                <option value="Comedy">Comedy</option>
-                                <option value="Drama">Drama</option>
-                                <option value="Romance">Romance</option>
-                                <option value="Animation">Animation</option>
-                                <option value="Thriller">Thriller</option>
-                                <option value="Science Fiction">Science Fiction</option>
-                                <option value="Crime">Crime</option>
-                                <option value="Adventure">Adventure</option>
-                                <option value="Fantasy">Fantasy</option>
-                                <option value="Family">Family</option>
-                            </select>
-                            <div className="flex flex-col space-y-2">
-                                <Link
-                                    href="/izisobanuye"
-                                    preserveScroll
-                                    className={
-                                        url === '/' || url === '/izisobanuye'
-                                            ? 'font-semibold text-red-500 py-2'
-                                            : 'text-gray-300 transition-colors hover:text-white py-2'
+                    {/* Mobile Menu */}
+                    {isMobileMenuOpen && (
+                        <div className="border-t border-gray-800 py-4 md:hidden">
+                            <div className="space-y-4">
+                                <form
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                    }}
+                                    className="relative"
+                                >
+                                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+                                    <Input
+                                        type="text"
+                                        placeholder="Search movies..."
+                                        value={search}
+                                        onChange={(e) =>
+                                            setSearch(e.target.value)
+                                        }
+                                        className="rounded-lg border-gray-700 bg-gray-800 py-2 pr-4 pl-10 text-white placeholder-gray-400"
+                                    />
+                                </form>
+                                <select
+                                    value={selectedGenre}
+                                    onChange={(e) =>
+                                        setSelectedGenre(e.target.value)
                                     }
-                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className="h-10 w-full rounded border-gray-600 bg-gray-700 px-3 text-sm text-white"
                                 >
-                                    <Home className="inline w-4 h-4 mr-2" />
-                                    izisobanuye
-                                </Link>
-                                <Link
-                                    href="/izidasobanuye"
-                                    preserveScroll
-                                    className={
-                                        url === '/izidasobanuye'
-                                            ? 'font-semibold text-red-500 py-2'
-                                            : 'text-gray-300 transition-colors hover:text-white py-2'
-                                    }
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    <Film className="inline w-4 h-4 mr-2" />
-                                    izidasobanuye
-                                </Link>
-                                <Link
-                                    href="/register"
-                                    preserveScroll
-                                    className="text-gray-300 transition-colors hover:text-white py-2"
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    <User className="inline w-4 h-4 mr-2" />
-                                    Sign Up
-                                </Link>
+                                    <option value="All">All Genres</option>
+                                    <option value="Action">Action</option>
+                                    <option value="Horror">Horror</option>
+                                    <option value="Comedy">Comedy</option>
+                                    <option value="Drama">Drama</option>
+                                    <option value="Romance">Romance</option>
+                                    <option value="Animation">Animation</option>
+                                    <option value="Thriller">Thriller</option>
+                                    <option value="Science Fiction">
+                                        Science Fiction
+                                    </option>
+                                    <option value="Crime">Crime</option>
+                                    <option value="Adventure">Adventure</option>
+                                    <option value="Fantasy">Fantasy</option>
+                                    <option value="Family">Family</option>
+                                </select>
+                                <div className="flex flex-col space-y-2">
+                                    {/* // Navigation link to the izisobanuye
+                                    (interpreted movies) page with conditional
+                                    styling
+                                    <Link
+                                        href="/izisobanuye"
+                                        preserveScroll
+                                        className={
+                                            url === '/' ||
+                                            url === '/izisobanuye'
+                                                ? 'py-2 font-semibold text-red-500'
+                                                : 'py-2 text-gray-300 transition-colors hover:text-white'
+                                        }
+                                        onClick={() =>
+                                            setIsMobileMenuOpen(false)
+                                        }
+                                    >
+                                        <Home className="mr-2 inline h-4 w-4" />
+                                        izisobanuye
+                                    </Link> */}
+                                    <Link
+                                        href="/izidasobanuye"
+                                        preserveScroll
+                                        className={
+                                            url === '/izidasobanuye'
+                                                ? 'py-2 font-semibold text-red-500'
+                                                : 'py-2 text-gray-300 transition-colors hover:text-white'
+                                        }
+                                        onClick={() =>
+                                            setIsMobileMenuOpen(false)
+                                        }
+                                    >
+                                        <Film className="mr-2 inline h-4 w-4" />
+                                        izidasobanuye
+                                    </Link>
+                                    <Link
+                                        href="/donate"
+                                        preserveScroll
+                                        className="py-2 text-gray-300 transition-colors hover:text-white"
+                                        onClick={() =>
+                                            setIsMobileMenuOpen(false)
+                                        }
+                                    >
+                                        <Heart className="mr-2 inline h-4 w-4" />
+                                        Donate
+                                    </Link>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </nav>
 
             {/* Announcement Bar */}
@@ -441,15 +465,28 @@ export default function Izidasobanuye() {
                                 <div className="flex flex-col gap-4 pt-4 sm:flex-row">
                                     <Button
                                         className="rounded-lg bg-red-600 px-8 py-3 text-lg font-semibold text-white transition-colors hover:bg-red-700"
-                                        onClick={() => heroMovie && window.open(`https://vidsrc.to/embed/movie/${heroMovie.id}`, '_blank')}
+                                        onClick={() => {
+                                            if (heroMovie) {
+                                                router.visit(
+                                                    `/movies/${heroMovie.id}`,
+                                                    { preserveScroll: true },
+                                                );
+                                            }
+                                        }}
                                     >
                                         Watch Now
                                     </Button>
                                     <Button
                                         variant="outline"
                                         className="rounded-lg border-gray-400 px-8 py-3 text-lg font-semibold text-gray-300 transition-colors hover:bg-gray-800"
-                                        onClick={() => heroTrailer && window.open(heroTrailer, '_blank')}
-                                        disabled={!heroTrailer}
+                                        onClick={() =>
+                                            heroMovie?.trailer &&
+                                            window.open(
+                                                heroMovie.trailer,
+                                                '_blank',
+                                            )
+                                        }
+                                        disabled={!heroMovie?.trailer}
                                     >
                                         Watch Trailer
                                     </Button>
@@ -465,58 +502,59 @@ export default function Izidasobanuye() {
                 <div className="container mx-auto px-4 py-8">
                     {/* Movie Sections */}
                     <div className="space-y-12">
-                        <MovieRow
-                            title={search.trim() ? "Search Results" : "Popular Movies"}
-                            movies={displayMovies.slice(0, 12)}
-                        />
-                        {!search.trim() && (
+                        {search.trim() ? (
+                            <MovieRow
+                                title="Search Results"
+                                movies={displayMovies}
+                            />
+                        ) : (
                             <>
                                 <MovieRow
-                                    title="Action"
+                                    title="Popular Movies"
+                                    movies={popularMovies}
+                                />
+                                <MovieRow
+                                    title="Action Movies"
                                     movies={actionMovies}
                                 />
                                 <MovieRow
-                                    title="Horror"
+                                    title="Horror Movies"
                                     movies={horrorMovies}
                                 />
                                 <MovieRow
-                                    title="Comedy"
+                                    title="Comedy Movies"
                                     movies={comedyMovies}
                                 />
                                 <MovieRow
-                                    title="Drama"
+                                    title="Drama Movies"
                                     movies={dramaMovies}
                                 />
                                 <MovieRow
-                                    title="Romance"
+                                    title="Romance Movies"
                                     movies={romanceMovies}
                                 />
                                 <MovieRow
-                                    title="Animation"
+                                    title="Animation Movies"
                                     movies={animationMovies}
                                 />
                                 <MovieRow
-                                    title="Thriller"
+                                    title="Thriller Movies"
                                     movies={thrillerMovies}
                                 />
                                 <MovieRow
-                                    title="Science Fiction"
-                                    movies={sciFiMovies}
-                                />
-                                <MovieRow
-                                    title="Crime"
+                                    title="Crime Movies"
                                     movies={crimeMovies}
                                 />
                                 <MovieRow
-                                    title="Adventure"
+                                    title="Adventure Movies"
                                     movies={adventureMovies}
                                 />
                                 <MovieRow
-                                    title="Fantasy"
+                                    title="Fantasy Movies"
                                     movies={fantasyMovies}
                                 />
                                 <MovieRow
-                                    title="Family"
+                                    title="Family Movies"
                                     movies={familyMovies}
                                 />
                             </>
@@ -591,7 +629,7 @@ export default function Izidasobanuye() {
                                     Quick Links
                                 </h4>
                                 <ul className="space-y-2">
-                                    <li>
+                                    {/* <li>
                                         <Link
                                             href="/"
                                             preserveScroll
@@ -599,7 +637,7 @@ export default function Izidasobanuye() {
                                         >
                                             izisobanuye
                                         </Link>
-                                    </li>
+                                    </li> */}
                                     <li>
                                         <Link
                                             href="/izidasobanuye"
@@ -687,7 +725,10 @@ function MovieRow({ title, movies }: { title: string; movies: Movie[] }) {
     const scrollAmount = 212; // scroll by one movie
 
     const scrollLeft = () => {
-        scrollRef.current?.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+        scrollRef.current?.scrollBy({
+            left: -scrollAmount,
+            behavior: 'smooth',
+        });
     };
 
     const scrollRight = () => {
@@ -732,10 +773,14 @@ function MovieRow({ title, movies }: { title: string; movies: Movie[] }) {
 }
 
 function MovieCard({ movie }: { movie: Movie }) {
+    const handleClick = () => {
+        router.visit(`/movies/${movie.id}`, { preserveScroll: true });
+    };
+
     return (
-        <div className="ml-3 h-[300px] sm:h-[400px] w-[150px] sm:w-[200px] flex-shrink-0 overflow-hidden rounded-lg bg-gray-800 transition-all hover:scale-105 hover:shadow-2xl">
-            <Link href={`/movies/${movie.id}`}>
-                <div className="relative h-[225px] sm:h-[300px] bg-gray-700">
+        <div className="ml-3 h-[300px] w-[150px] flex-shrink-0 overflow-hidden rounded-lg bg-gray-800 transition-all hover:scale-105 hover:shadow-2xl sm:h-[400px] sm:w-[200px]">
+            <div onClick={handleClick} className="h-full cursor-pointer">
+                <div className="relative h-[225px] bg-gray-700 sm:h-[300px]">
                     <img
                         src={movie.poster}
                         alt={movie.title}
@@ -761,20 +806,25 @@ function MovieCard({ movie }: { movie: Movie }) {
                         <Badge className="flex items-center gap-1 bg-red-600 px-2 py-1 text-white shadow-lg hover:bg-red-700">
                             <Star className="h-3 w-3 fill-current" />
                             <span className="text-sm font-bold">
-                                {movie.rating}
+                                {movie.rating
+                                    ? Math.floor(movie.rating * 10) / 10
+                                    : 'N/A'}
                             </span>
                         </Badge>
                     </div>
                 </div>
                 <div className="p-3 sm:p-4">
-                    <h3 className="mb-2 line-clamp-2 text-sm sm:text-lg leading-tight font-bold text-white">
-                        {movie.title}
+                    <h3 className="mb-2 line-clamp-2 text-sm leading-tight font-bold text-white sm:text-lg">
+                        {movie.title || 'No Title'}
                     </h3>
-                    <p className="text-xs sm:text-sm text-gray-400">
-                        {movie.releaseYear} • {movie.genre.slice(0, 2).join(', ')}
+                    <p className="text-xs text-gray-400 sm:text-sm">
+                        {movie.releaseYear || 'N/A'} •{' '}
+                        {movie.genre && movie.genre.length > 0
+                            ? movie.genre[0]
+                            : 'Unknown'}
                     </p>
                 </div>
-            </Link>
+            </div>
         </div>
     );
 }

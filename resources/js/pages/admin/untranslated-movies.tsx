@@ -153,10 +153,10 @@ export default function AdminUntranslatedMovies() {
                             <h1 className="text-3xl font-bold">Untranslated Movies Management</h1>
                             <p className="text-gray-400 mt-2">Manage untranslated movies and content</p>
                         </div>
-                        <Button onClick={handleAddMovie} className="bg-red-600 hover:bg-red-700">
+                        {/* <Button onClick={handleAddMovie} className="bg-red-600 hover:bg-red-700">
                             <Plus className="h-4 w-4 mr-2" />
                             Add New Movie
-                        </Button>
+                        </Button> */}
                     </div>
 
                     {/* Filters and Search */}

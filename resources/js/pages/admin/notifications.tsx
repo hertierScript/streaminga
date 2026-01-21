@@ -47,6 +47,7 @@ export default function AdminNotifications() {
     const [loading, setLoading] = useState(true);
     const [unreadCount, setUnreadCount] = useState(0);
     const [totalWatchDuration, setTotalWatchDuration] = useState(0);
+    const [activeTab, setActiveTab] = useState<'izisobanuye' | 'izidasobanuye'>('izisobanuye');
 
     const formatDuration = (seconds: number) => {
         const hours = Math.floor(seconds / 3600);
@@ -68,12 +69,13 @@ export default function AdminNotifications() {
         fetchTotalWatchDuration();
         // Mark all as read when page opens
         markAllAsRead();
-    }, []);
+    }, [activeTab]);
 
     const fetchNotifications = async (page = 1) => {
         setLoading(true);
         try {
-            const response = await fetch(`/admin/api/notifications?page=${page}`);
+            const type = activeTab === 'izisobanuye' ? 'izisobanuye' : 'translated';
+            const response = await fetch(`/admin/api/notifications?page=${page}&type=${type}`);
             const data = await response.json();
             setPagination(data);
         } catch (error) {
@@ -95,7 +97,10 @@ export default function AdminNotifications() {
 
     const fetchTotalWatchDuration = async () => {
         try {
-            const response = await fetch('/admin/api/total-watch-duration-untranslated');
+            const endpoint = activeTab === 'izisobanuye'
+                ? '/admin/api/total-watch-duration-translated'  // For izisobanuye movies
+                : '/admin/api/total-watch-duration-untranslated';  // For izidasobanuye movies
+            const response = await fetch(endpoint);
             const data = await response.json();
             setTotalWatchDuration(data.total_duration);
         } catch (error) {
@@ -202,9 +207,9 @@ export default function AdminNotifications() {
                             <div>
                                 <h1 className="text-3xl font-bold flex items-center">
                                     <Bell className="h-8 w-8 mr-3 text-blue-400" />
-                                    Movie View Notifications
+                                    {activeTab === 'izisobanuye' ? 'Izisobanuye' : 'Izidasobanuye'} Movie View Notifications
                                 </h1>
-                                <p className="text-gray-400 mt-2">Track when movies are viewed by users</p>
+                                <p className="text-gray-400 mt-2">Track when {activeTab === 'izisobanuye' ? 'interpreted' : 'original'} movies are viewed by users</p>
                             </div>
                         </div>
                         <div className="flex space-x-2">
@@ -225,6 +230,30 @@ export default function AdminNotifications() {
                                 Reset Notifications
                             </Button>
                         </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex space-x-1 mb-6 bg-gray-800 p-1 rounded-lg">
+                        <button
+                            onClick={() => setActiveTab('izisobanuye')}
+                            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                                activeTab === 'izisobanuye'
+                                    ? 'bg-red-600 text-white'
+                                    : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                            }`}
+                        >
+                            Izisobanuye Notifications
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('izidasobanuye')}
+                            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                                activeTab === 'izidasobanuye'
+                                    ? 'bg-red-600 text-white'
+                                    : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                            }`}
+                        >
+                            Izidasobanuye Notifications
+                        </button>
                     </div>
 
                     {/* Stats Cards */}

@@ -3,7 +3,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AdminSidebar } from '@/components/admin-sidebar';
-import { movies } from '@/data/movies';
 import {
     Activity,
     BarChart3,
@@ -22,11 +21,40 @@ interface WatchDurationStats {
     total_views_with_duration: number;
 }
 
+interface DashboardStats {
+    total_views: number;
+    total_comments: number;
+    total_subscribers: number;
+    revenue: number;
+}
+
+interface RecentActivity {
+    id: string;
+    type: string;
+    message: string;
+    timestamp: string;
+    created_at: string;
+}
+
+interface TopMovie {
+    id: number;
+    title: string;
+    poster: string | null;
+    rating: number;
+    view_count: number;
+}
+
 export default function AdminDashboard() {
     const [watchStats, setWatchStats] = useState<WatchDurationStats | null>(null);
+    const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+    const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+    const [topMovies, setTopMovies] = useState<TopMovie[]>([]);
 
     useEffect(() => {
         fetchWatchStats();
+        fetchDashboardStats();
+        fetchRecentActivities();
+        fetchTopMovies();
     }, []);
 
     const fetchWatchStats = async () => {
@@ -39,9 +67,39 @@ export default function AdminDashboard() {
         }
     };
 
+    const fetchDashboardStats = async () => {
+        try {
+            const response = await fetch('/admin/api/dashboard-stats');
+            const data = await response.json();
+            setDashboardStats(data);
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+        }
+    };
+
+    const fetchRecentActivities = async () => {
+        try {
+            const response = await fetch('/admin/api/recent-activities');
+            const data = await response.json();
+            setRecentActivities(data);
+        } catch (error) {
+            console.error('Error fetching recent activities:', error);
+        }
+    };
+
+    const fetchTopMovies = async () => {
+        try {
+            const response = await fetch('/admin/api/top-performing-movies');
+            const data = await response.json();
+            setTopMovies(data);
+        } catch (error) {
+            console.error('Error fetching top movies:', error);
+        }
+    };
+
     const formatDuration = (seconds: number) => {
         const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
+        const remainingSeconds = Math.round((seconds % 60) * 10) / 10; // Round to 1 decimal place
         return `${minutes}m ${remainingSeconds}s`;
     };
 
@@ -70,7 +128,9 @@ export default function AdminDashboard() {
                                 <Eye className="h-4 w-4 text-blue-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">1,234,567</div>
+                                <div className="text-2xl font-bold">
+                                    {dashboardStats ? dashboardStats.total_views.toLocaleString() : 'Loading...'}
+                                </div>
                                 <p className="text-xs text-green-400">+12% from last month</p>
                             </CardContent>
                         </Card>
@@ -83,7 +143,9 @@ export default function AdminDashboard() {
                                 <MessageSquare className="h-4 w-4 text-green-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">89,432</div>
+                                <div className="text-2xl font-bold">
+                                    {dashboardStats ? dashboardStats.total_comments.toLocaleString() : 'Loading...'}
+                                </div>
                                 <p className="text-xs text-green-400">+8% from last month</p>
                             </CardContent>
                         </Card>
@@ -96,7 +158,9 @@ export default function AdminDashboard() {
                                 <Users className="h-4 w-4 text-purple-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">45,678</div>
+                                <div className="text-2xl font-bold">
+                                    {dashboardStats ? dashboardStats.total_subscribers.toLocaleString() : 'Loading...'}
+                                </div>
                                 <p className="text-xs text-green-400">+15% from last month</p>
                             </CardContent>
                         </Card>
@@ -109,7 +173,9 @@ export default function AdminDashboard() {
                                 <DollarSign className="h-4 w-4 text-yellow-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">$234,567</div>
+                                <div className="text-2xl font-bold">
+                                    ${dashboardStats ? dashboardStats.revenue.toLocaleString() : 'Loading...'}
+                                </div>
                                 <p className="text-xs text-green-400">+22% from last month</p>
                             </CardContent>
                         </Card>
@@ -143,27 +209,23 @@ export default function AdminDashboard() {
                             </CardHeader>
                             <CardContent className="pt-0">
                                 <div className="space-y-3 sm:space-y-4">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="h-2 w-2 rounded-full bg-green-400 flex-shrink-0"></div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm">New user registered</p>
-                                            <p className="text-xs text-gray-400">2 minutes ago</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                        <div className="h-2 w-2 rounded-full bg-blue-400 flex-shrink-0"></div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm">Movie "Inception" viewed 1,234 times</p>
-                                            <p className="text-xs text-gray-400">15 minutes ago</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                        <div className="h-2 w-2 rounded-full bg-yellow-400 flex-shrink-0"></div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm">New subscription purchased</p>
-                                            <p className="text-xs text-gray-400">1 hour ago</p>
-                                        </div>
-                                    </div>
+                                    {recentActivities.length > 0 ? (
+                                        recentActivities.map((activity) => (
+                                            <div key={activity.id} className="flex items-center space-x-3">
+                                                <div className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                                                    activity.type === 'user_registration' ? 'bg-green-400' :
+                                                    activity.type === 'movie_view' ? 'bg-blue-400' :
+                                                    activity.type === 'subscription' ? 'bg-yellow-400' : 'bg-gray-400'
+                                                }`}></div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm">{activity.message}</p>
+                                                    <p className="text-xs text-gray-400">{activity.timestamp}</p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-gray-400">No recent activities</p>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -177,22 +239,32 @@ export default function AdminDashboard() {
                             </CardHeader>
                             <CardContent className="pt-0">
                                 <div className="space-y-3 sm:space-y-4">
-                                    {movies.slice(0, 5).map((movie, index) => (
-                                        <div key={movie.id} className="flex items-center space-x-3">
-                                            <div className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-gray-700 text-xs sm:text-sm font-bold flex-shrink-0">
-                                                {index + 1}
+                                    {topMovies.length > 0 ? (
+                                        topMovies.map((movie, index) => (
+                                            <div key={movie.id} className="flex items-center space-x-3">
+                                                <div className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-gray-700 text-xs sm:text-sm font-bold flex-shrink-0">
+                                                    {index + 1}
+                                                </div>
+                                                {movie.poster ? (
+                                                    <img
+                                                        src={movie.poster}
+                                                        alt={movie.title}
+                                                        className="h-8 w-6 sm:h-10 sm:w-7 rounded object-cover flex-shrink-0"
+                                                    />
+                                                ) : (
+                                                    <div className="h-8 w-6 sm:h-10 sm:w-7 rounded bg-gray-600 flex items-center justify-center text-xs text-gray-400 flex-shrink-0">
+                                                        No Image
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium truncate">{movie.title}</p>
+                                                    <p className="text-xs text-gray-400">{movie.rating} ★ • {movie.view_count} views</p>
+                                                </div>
                                             </div>
-                                            <img
-                                                src={movie.poster}
-                                                alt={movie.title}
-                                                className="h-8 w-6 sm:h-10 sm:w-7 rounded object-cover flex-shrink-0"
-                                            />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium truncate">{movie.title}</p>
-                                                <p className="text-xs text-gray-400">{movie.rating} ★</p>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-gray-400">No movies data available</p>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>

@@ -47,7 +47,7 @@ export interface Movie {
     id: number;
     title: string;
     poster: string;
-    rating: number;
+    rating: number | null;
     genre: string[];
     description: string;
     releaseYear: number;
@@ -56,6 +56,9 @@ export interface Movie {
     interpreter?: string; // Interpreter for izisobanuye movies (optional)
     country?: string; // Country of origin
     trailer?: string; // Trailer URL
+    poster_file_path?: string; // Uploaded poster file path
+    movie_file_path?: string; // Uploaded movie file path
+    watch_now_url?: string; // Custom watch now URL for hero
 }
 
 export interface Comment {
@@ -70,4 +73,5 @@ export interface Comment {
     updated_at: string;
     user?: User;
     replies?: Comment[];
+    movie?: Movie;
 }

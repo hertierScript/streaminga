@@ -1,4 +1,5 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage, router } from '@inertiajs/react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,11 +20,177 @@ import {
     PieChart,
     Activity
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 
-export default function AdminReports() {
+interface ReportsPageProps {
+    reportsData?: ReportsData;
+    timeRange?: string;
+}
+
+interface ReportsData {
+    movies: {
+        total_movies: number;
+        new_this_month: number;
+        most_viewed: string;
+        avg_rating: number;
+        movies_by_genre: Array<{
+            genre: string;
+            count: number;
+            percentage: number;
+        }>;
+        most_viewed_movies: Array<{
+            title: string;
+            views: string;
+            rating: number;
+        }>;
+        highest_rated_movies: Array<{
+            title: string;
+            rating: number;
+            votes: string;
+        }>;
+    };
+    users: {
+        total_users: number;
+        active_users: number;
+        new_this_month: number;
+        avg_watch_time: string;
+        user_activity: {
+            active: { count: number; percentage: number };
+            inactive: { count: number; percentage: number };
+            dormant: { count: number; percentage: number };
+        };
+        subscription_overview: {
+            active: number;
+            expired: number;
+            canceled: number;
+            free_trial: number;
+        };
+        top_users: Array<{
+            name: string;
+            watchTime: string;
+            movies: number;
+        }>;
+    };
+    subscription: {
+        monthly_revenue: number;
+        new_subscriptions: number;
+        renewals: number;
+        cancellations: number;
+        revenue_breakdown: {
+            monthly_plans: { amount: number; percentage: number };
+            yearly_plans: { amount: number; percentage: number };
+            weekly_plans: { amount: number; percentage: number };
+        };
+        subscription_trends: {
+            new_subscriptions: { count: number; change: number };
+            renewals: { count: number; change: number };
+            cancellations: { count: number; change: number };
+        };
+    };
+    engagement: {
+        total_comments: number;
+        comments_this_month: number;
+        most_commented_movie: string;
+        flagged_comments: number;
+        most_commented_movies: Array<{
+            title: string;
+            comments: number;
+            engagement: string;
+        }>;
+        comment_status: {
+            approved: number;
+            pending: number;
+            flagged: number;
+            admin_replies: number;
+        };
+    };
+    system: {
+        system_uptime: number;
+        storage_used: string;
+        error_rate: number;
+        avg_response_time: number;
+        recent_errors: Array<{
+            time: string;
+            error: string;
+            severity: string;
+        }>;
+        storage_breakdown: Array<{
+            category: string;
+            used: string;
+            percentage: number;
+        }>;
+    };
+}
+
+export default function AdminReports({ reportsData: initialReportsData, timeRange: initialTimeRange }: ReportsPageProps) {
+    const { user, loading: authLoading } = useAuth();
+
+
+    // Initialize with fallback data
+    const fallbackData: ReportsData = {
+        movies: {
+            total_movies: 0,
+            new_this_month: 0,
+            most_viewed: 'N/A',
+            avg_rating: 0,
+            movies_by_genre: [],
+            most_viewed_movies: [],
+            highest_rated_movies: []
+        },
+        users: {
+            total_users: 0,
+            active_users: 0,
+            new_this_month: 0,
+            avg_watch_time: '0h 0m',
+            user_activity: { active: { count: 0, percentage: 0 }, inactive: { count: 0, percentage: 0 }, dormant: { count: 0, percentage: 0 } },
+            subscription_overview: { active: 0, expired: 0, canceled: 0, free_trial: 0 },
+            top_users: []
+        },
+        subscription: {
+            monthly_revenue: 0,
+            new_subscriptions: 0,
+            renewals: 0,
+            cancellations: 0,
+            revenue_breakdown: { monthly_plans: { amount: 0, percentage: 0 }, yearly_plans: { amount: 0, percentage: 0 }, weekly_plans: { amount: 0, percentage: 0 } },
+            subscription_trends: { new_subscriptions: { count: 0, change: 0 }, renewals: { count: 0, change: 0 }, cancellations: { count: 0, change: 0 } }
+        },
+        engagement: {
+            total_comments: 0,
+            comments_this_month: 0,
+            most_commented_movie: 'N/A',
+            flagged_comments: 0,
+            most_commented_movies: [],
+            comment_status: { approved: 0, pending: 0, flagged: 0, admin_replies: 0 }
+        },
+        system: {
+            system_uptime: 99.8,
+            storage_used: '2.4TB',
+            error_rate: 0.02,
+            avg_response_time: 245,
+            recent_errors: [],
+            storage_breakdown: []
+        }
+    };
+
     const [activeSection, setActiveSection] = useState('movies');
-    const [timeRange, setTimeRange] = useState('30d');
+    const [timeRange, setTimeRange] = useState(initialTimeRange || '30d');
+    const [reportsData, setReportsData] = useState<ReportsData>(initialReportsData || fallbackData);
+
+    // Fetch real data from API when time range changes
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await axios.get(`/admin/api/reports-data?time_range=${timeRange}`);
+                setReportsData(response.data);
+            } catch (error) {
+                console.error('Failed to fetch reports data:', error);
+                // Keep fallback data
+            }
+        };
+
+        fetchData();
+    }, [timeRange]);
 
     const sections = [
         { id: 'movies', label: 'Movies Reports', icon: Film },
@@ -32,6 +199,7 @@ export default function AdminReports() {
         { id: 'engagement', label: 'Comments & Engagement', icon: MessageSquare },
         { id: 'system', label: 'System Reports', icon: AlertTriangle },
     ];
+
 
     return (
         <>
@@ -44,7 +212,15 @@ export default function AdminReports() {
                     <div className="flex justify-between items-center mb-6">
                         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">Reports & Insights</h1>
                         <div className="flex items-center space-x-4">
-                            <Select value={timeRange} onValueChange={setTimeRange}>
+                            <Select value={timeRange} onValueChange={(value) => {
+                                setTimeRange(value);
+                                router.visit('/admin/reports', {
+                                    method: 'get',
+                                    data: { time_range: value },
+                                    preserveState: false,
+                                    preserveScroll: false,
+                                });
+                            }}>
                                 <SelectTrigger className="w-32 bg-gray-800 border-gray-600">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -95,7 +271,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Total Movies</p>
-                                                <p className="text-2xl font-bold">1,247</p>
+                                                <p className="text-2xl font-bold">{reportsData.movies.total_movies.toLocaleString()}</p>
                                             </div>
                                             <Film className="h-8 w-8 text-blue-400" />
                                         </div>
@@ -106,7 +282,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">New This Month</p>
-                                                <p className="text-2xl font-bold">23</p>
+                                                <p className="text-2xl font-bold">{reportsData.movies.new_this_month}</p>
                                             </div>
                                             <TrendingUp className="h-8 w-8 text-green-400" />
                                         </div>
@@ -117,7 +293,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Most Viewed</p>
-                                                <p className="text-2xl font-bold">Inception</p>
+                                                <p className="text-2xl font-bold">{reportsData.movies.most_viewed || 'N/A'}</p>
                                             </div>
                                             <Eye className="h-8 w-8 text-purple-400" />
                                         </div>
@@ -128,7 +304,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Avg Rating</p>
-                                                <p className="text-2xl font-bold">4.2</p>
+                                                <p className="text-2xl font-bold">{reportsData.movies.avg_rating}</p>
                                             </div>
                                             <Star className="h-8 w-8 text-yellow-400" />
                                         </div>
@@ -143,18 +319,7 @@ export default function AdminReports() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
-                                        {[
-                                            { genre: 'Action', count: 245, percentage: 19.6 },
-                                            { genre: 'Drama', count: 198, percentage: 15.9 },
-                                            { genre: 'Comedy', count: 167, percentage: 13.4 },
-                                            { genre: 'Sci-Fi', count: 134, percentage: 10.7 },
-                                            { genre: 'Thriller', count: 123, percentage: 9.9 },
-                                            { genre: 'Romance', count: 98, percentage: 7.9 },
-                                            { genre: 'Horror', count: 87, percentage: 7.0 },
-                                            { genre: 'Documentary', count: 76, percentage: 6.1 },
-                                            { genre: 'Animation', count: 65, percentage: 5.2 },
-                                            { genre: 'Other', count: 54, percentage: 4.3 },
-                                        ].map((item) => (
+                                        {reportsData.movies.movies_by_genre.map((item) => (
                                             <div key={item.genre} className="flex items-center justify-between">
                                                 <span className="flex-1">{item.genre}</span>
                                                 <div className="flex-1 mx-4">
@@ -180,13 +345,7 @@ export default function AdminReports() {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-3">
-                                            {[
-                                                { title: 'Inception', views: '2.4M', rating: 4.8 },
-                                                { title: 'The Dark Knight', views: '2.1M', rating: 4.9 },
-                                                { title: 'Interstellar', views: '1.9M', rating: 4.7 },
-                                                { title: 'Pulp Fiction', views: '1.7M', rating: 4.6 },
-                                                { title: 'The Matrix', views: '1.6M', rating: 4.5 },
-                                            ].map((movie, index) => (
+                                            {reportsData.movies.most_viewed_movies.map((movie, index) => (
                                                 <div key={movie.title} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
                                                     <div className="flex items-center space-x-3">
                                                         <span className="text-lg font-bold text-red-400">#{index + 1}</span>
@@ -211,13 +370,7 @@ export default function AdminReports() {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-3">
-                                            {[
-                                                { title: 'The Shawshank Redemption', rating: 4.9, votes: '2.3M' },
-                                                { title: 'The Godfather', rating: 4.9, votes: '1.8M' },
-                                                { title: 'The Dark Knight', rating: 4.9, votes: '2.4M' },
-                                                { title: 'Pulp Fiction', rating: 4.8, votes: '1.9M' },
-                                                { title: 'Forrest Gump', rating: 4.8, votes: '2.0M' },
-                                            ].map((movie, index) => (
+                                            {reportsData.movies.highest_rated_movies.map((movie, index) => (
                                                 <div key={movie.title} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
                                                     <div className="flex items-center space-x-3">
                                                         <span className="text-lg font-bold text-red-400">#{index + 1}</span>
@@ -249,7 +402,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Total Users</p>
-                                                <p className="text-2xl font-bold">45,678</p>
+                                                <p className="text-2xl font-bold">{reportsData.users.total_users.toLocaleString()}</p>
                                             </div>
                                             <Users className="h-8 w-8 text-blue-400" />
                                         </div>
@@ -260,7 +413,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Active Users</p>
-                                                <p className="text-2xl font-bold">32,145</p>
+                                                <p className="text-2xl font-bold">{reportsData.users.active_users.toLocaleString()}</p>
                                             </div>
                                             <Activity className="h-8 w-8 text-green-400" />
                                         </div>
@@ -271,7 +424,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">New This Month</p>
-                                                <p className="text-2xl font-bold">2,341</p>
+                                                <p className="text-2xl font-bold">{reportsData.users.new_this_month.toLocaleString()}</p>
                                             </div>
                                             <TrendingUp className="h-8 w-8 text-green-400" />
                                         </div>
@@ -282,7 +435,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Avg Watch Time</p>
-                                                <p className="text-2xl font-bold">2h 15m</p>
+                                                <p className="text-2xl font-bold">{reportsData.users.avg_watch_time}</p>
                                             </div>
                                             <Eye className="h-8 w-8 text-purple-400" />
                                         </div>
@@ -298,19 +451,19 @@ export default function AdminReports() {
                                 <CardContent>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         <div className="text-center">
-                                            <div className="text-3xl font-bold text-green-400 mb-2">70.5%</div>
+                                            <div className="text-3xl font-bold text-green-400 mb-2">{reportsData.users.user_activity.active.percentage}%</div>
                                             <p className="text-sm text-gray-400">Active Users</p>
-                                            <p className="text-lg font-semibold">32,145</p>
+                                            <p className="text-lg font-semibold">{reportsData.users.user_activity.active.count.toLocaleString()}</p>
                                         </div>
                                         <div className="text-center">
-                                            <div className="text-3xl font-bold text-yellow-400 mb-2">20.3%</div>
+                                            <div className="text-3xl font-bold text-yellow-400 mb-2">{reportsData.users.user_activity.inactive.percentage}%</div>
                                             <p className="text-sm text-gray-400">Inactive Users</p>
-                                            <p className="text-lg font-semibold">9,267</p>
+                                            <p className="text-lg font-semibold">{reportsData.users.user_activity.inactive.count.toLocaleString()}</p>
                                         </div>
                                         <div className="text-center">
-                                            <div className="text-3xl font-bold text-red-400 mb-2">9.2%</div>
+                                            <div className="text-3xl font-bold text-red-400 mb-2">{reportsData.users.user_activity.dormant.percentage}%</div>
                                             <p className="text-sm text-gray-400">Dormant Users</p>
-                                            <p className="text-lg font-semibold">4,266</p>
+                                            <p className="text-lg font-semibold">{reportsData.users.user_activity.dormant.count.toLocaleString()}</p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -324,19 +477,19 @@ export default function AdminReports() {
                                 <CardContent>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                         <div className="text-center p-4 bg-green-900/20 rounded-lg">
-                                            <div className="text-2xl font-bold text-green-400 mb-1">18,234</div>
+                                            <div className="text-2xl font-bold text-green-400 mb-1">{reportsData.users.subscription_overview.active.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400">Active</p>
                                         </div>
                                         <div className="text-center p-4 bg-red-900/20 rounded-lg">
-                                            <div className="text-2xl font-bold text-red-400 mb-1">2,145</div>
+                                            <div className="text-2xl font-bold text-red-400 mb-1">{reportsData.users.subscription_overview.expired.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400">Expired</p>
                                         </div>
                                         <div className="text-center p-4 bg-yellow-900/20 rounded-lg">
-                                            <div className="text-2xl font-bold text-yellow-400 mb-1">1,567</div>
+                                            <div className="text-2xl font-bold text-yellow-400 mb-1">{reportsData.users.subscription_overview.canceled.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400">Canceled</p>
                                         </div>
                                         <div className="text-center p-4 bg-blue-900/20 rounded-lg">
-                                            <div className="text-2xl font-bold text-blue-400 mb-1">15,678</div>
+                                            <div className="text-2xl font-bold text-blue-400 mb-1">{reportsData.users.subscription_overview.free_trial.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400">Free Trial</p>
                                         </div>
                                     </div>
@@ -350,13 +503,7 @@ export default function AdminReports() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-3">
-                                        {[
-                                            { name: 'john_doe', watchTime: '156h 32m', movies: 89 },
-                                            { name: 'movie_lover', watchTime: '142h 15m', movies: 76 },
-                                            { name: 'cinema_fan', watchTime: '138h 45m', movies: 82 },
-                                            { name: 'film_buff', watchTime: '129h 18m', movies: 71 },
-                                            { name: 'stream_user', watchTime: '124h 52m', movies: 68 },
-                                        ].map((user, index) => (
+                                        {reportsData.users.top_users.map((user, index) => (
                                             <div key={user.name} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
                                                 <div className="flex items-center space-x-3">
                                                     <span className="text-lg font-bold text-red-400">#{index + 1}</span>
@@ -387,7 +534,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Monthly Revenue</p>
-                                                <p className="text-2xl font-bold">$45,678</p>
+                                                <p className="text-2xl font-bold">${reportsData.subscription.monthly_revenue.toLocaleString()}</p>
                                             </div>
                                             <DollarSign className="h-8 w-8 text-green-400" />
                                         </div>
@@ -398,7 +545,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">New Subscriptions</p>
-                                                <p className="text-2xl font-bold">1,234</p>
+                                                <p className="text-2xl font-bold">{reportsData.subscription.new_subscriptions.toLocaleString()}</p>
                                             </div>
                                             <TrendingUp className="h-8 w-8 text-blue-400" />
                                         </div>
@@ -409,7 +556,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Renewals</p>
-                                                <p className="text-2xl font-bold">856</p>
+                                                <p className="text-2xl font-bold">{reportsData.subscription.renewals.toLocaleString()}</p>
                                             </div>
                                             <Activity className="h-8 w-8 text-purple-400" />
                                         </div>
@@ -420,7 +567,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Cancellations</p>
-                                                <p className="text-2xl font-bold">123</p>
+                                                <p className="text-2xl font-bold">{reportsData.subscription.cancellations.toLocaleString()}</p>
                                             </div>
                                             <AlertTriangle className="h-8 w-8 text-red-400" />
                                         </div>
@@ -436,19 +583,19 @@ export default function AdminReports() {
                                 <CardContent>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         <div className="text-center p-6 bg-gray-700 rounded-lg">
-                                            <div className="text-2xl font-bold text-green-400 mb-2">$28,945</div>
+                                            <div className="text-2xl font-bold text-green-400 mb-2">${reportsData.subscription.revenue_breakdown.monthly_plans.amount.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400 mb-1">Monthly Plans</p>
-                                            <p className="text-lg">63.4%</p>
+                                            <p className="text-lg">{reportsData.subscription.revenue_breakdown.monthly_plans.percentage}%</p>
                                         </div>
                                         <div className="text-center p-6 bg-gray-700 rounded-lg">
-                                            <div className="text-2xl font-bold text-blue-400 mb-2">$12,345</div>
+                                            <div className="text-2xl font-bold text-blue-400 mb-2">${reportsData.subscription.revenue_breakdown.yearly_plans.amount.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400 mb-1">Yearly Plans</p>
-                                            <p className="text-lg">27.0%</p>
+                                            <p className="text-lg">{reportsData.subscription.revenue_breakdown.yearly_plans.percentage}%</p>
                                         </div>
                                         <div className="text-center p-6 bg-gray-700 rounded-lg">
-                                            <div className="text-2xl font-bold text-purple-400 mb-2">$4,388</div>
+                                            <div className="text-2xl font-bold text-purple-400 mb-2">${reportsData.subscription.revenue_breakdown.weekly_plans.amount.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400 mb-1">Weekly Plans</p>
-                                            <p className="text-lg">9.6%</p>
+                                            <p className="text-lg">{reportsData.subscription.revenue_breakdown.weekly_plans.percentage}%</p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -467,8 +614,8 @@ export default function AdminReports() {
                                                 <p className="text-sm text-gray-400">Last 30 days</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-xl font-bold text-green-400">+1,234</p>
-                                                <p className="text-sm text-green-400">+15.2%</p>
+                                                <p className="text-xl font-bold text-green-400">+{reportsData.subscription.subscription_trends.new_subscriptions.count.toLocaleString()}</p>
+                                                <p className="text-sm text-green-400">+{reportsData.subscription.subscription_trends.new_subscriptions.change}%</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
@@ -477,8 +624,8 @@ export default function AdminReports() {
                                                 <p className="text-sm text-gray-400">Last 30 days</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-xl font-bold text-blue-400">856</p>
-                                                <p className="text-sm text-blue-400">+8.7%</p>
+                                                <p className="text-xl font-bold text-blue-400">{reportsData.subscription.subscription_trends.renewals.count.toLocaleString()}</p>
+                                                <p className="text-sm text-blue-400">+{reportsData.subscription.subscription_trends.renewals.change}%</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
@@ -487,8 +634,8 @@ export default function AdminReports() {
                                                 <p className="text-sm text-gray-400">Last 30 days</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-xl font-bold text-red-400">123</p>
-                                                <p className="text-sm text-red-400">-2.1%</p>
+                                                <p className="text-xl font-bold text-red-400">{reportsData.subscription.subscription_trends.cancellations.count.toLocaleString()}</p>
+                                                <p className="text-sm text-red-400">{reportsData.subscription.subscription_trends.cancellations.change > 0 ? '+' : ''}{reportsData.subscription.subscription_trends.cancellations.change}%</p>
                                             </div>
                                         </div>
                                     </div>
@@ -530,7 +677,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Total Comments</p>
-                                                <p className="text-2xl font-bold">12,456</p>
+                                                <p className="text-2xl font-bold">{reportsData.engagement.total_comments.toLocaleString()}</p>
                                             </div>
                                             <MessageSquare className="h-8 w-8 text-blue-400" />
                                         </div>
@@ -541,7 +688,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Comments This Month</p>
-                                                <p className="text-2xl font-bold">2,341</p>
+                                                <p className="text-2xl font-bold">{reportsData.engagement.comments_this_month.toLocaleString()}</p>
                                             </div>
                                             <TrendingUp className="h-8 w-8 text-green-400" />
                                         </div>
@@ -552,7 +699,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Most Commented Movie</p>
-                                                <p className="text-2xl font-bold">Inception</p>
+                                                <p className="text-2xl font-bold">{reportsData.engagement.most_commented_movie}</p>
                                             </div>
                                             <BarChart3 className="h-8 w-8 text-purple-400" />
                                         </div>
@@ -563,7 +710,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Flagged Comments</p>
-                                                <p className="text-2xl font-bold">89</p>
+                                                <p className="text-2xl font-bold">{reportsData.engagement.flagged_comments.toLocaleString()}</p>
                                             </div>
                                             <AlertTriangle className="h-8 w-8 text-red-400" />
                                         </div>
@@ -578,13 +725,7 @@ export default function AdminReports() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-3">
-                                        {[
-                                            { title: 'Inception', comments: 234, engagement: 'High' },
-                                            { title: 'The Dark Knight', comments: 198, engagement: 'High' },
-                                            { title: 'Interstellar', comments: 187, engagement: 'High' },
-                                            { title: 'Pulp Fiction', comments: 156, engagement: 'Medium' },
-                                            { title: 'The Matrix', comments: 143, engagement: 'Medium' },
-                                        ].map((movie, index) => (
+                                        {reportsData.engagement.most_commented_movies.map((movie, index) => (
                                             <div key={movie.title} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
                                                 <div className="flex items-center space-x-3">
                                                     <span className="text-lg font-bold text-red-400">#{index + 1}</span>
@@ -614,19 +755,19 @@ export default function AdminReports() {
                                 <CardContent>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                         <div className="text-center p-4 bg-green-900/20 rounded-lg">
-                                            <div className="text-2xl font-bold text-green-400 mb-1">10,234</div>
+                                            <div className="text-2xl font-bold text-green-400 mb-1">{reportsData.engagement.comment_status.approved.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400">Approved</p>
                                         </div>
                                         <div className="text-center p-4 bg-yellow-900/20 rounded-lg">
-                                            <div className="text-2xl font-bold text-yellow-400 mb-1">1,567</div>
+                                            <div className="text-2xl font-bold text-yellow-400 mb-1">{reportsData.engagement.comment_status.pending.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400">Pending</p>
                                         </div>
                                         <div className="text-center p-4 bg-red-900/20 rounded-lg">
-                                            <div className="text-2xl font-bold text-red-400 mb-1">89</div>
+                                            <div className="text-2xl font-bold text-red-400 mb-1">{reportsData.engagement.comment_status.flagged.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400">Flagged</p>
                                         </div>
                                         <div className="text-center p-4 bg-blue-900/20 rounded-lg">
-                                            <div className="text-2xl font-bold text-blue-400 mb-1">566</div>
+                                            <div className="text-2xl font-bold text-blue-400 mb-1">{reportsData.engagement.comment_status.admin_replies.toLocaleString()}</div>
                                             <p className="text-sm text-gray-400">Admin Replies</p>
                                         </div>
                                     </div>
@@ -645,7 +786,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">System Uptime</p>
-                                                <p className="text-2xl font-bold">99.8%</p>
+                                                <p className="text-2xl font-bold">{reportsData.system.system_uptime}%</p>
                                             </div>
                                             <Activity className="h-8 w-8 text-green-400" />
                                         </div>
@@ -656,7 +797,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Storage Used</p>
-                                                <p className="text-2xl font-bold">2.4TB</p>
+                                                <p className="text-2xl font-bold">{reportsData.system.storage_used}</p>
                                             </div>
                                             <BarChart3 className="h-8 w-8 text-blue-400" />
                                         </div>
@@ -667,7 +808,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Error Rate</p>
-                                                <p className="text-2xl font-bold">0.02%</p>
+                                                <p className="text-2xl font-bold">{reportsData.system.error_rate}%</p>
                                             </div>
                                             <AlertTriangle className="h-8 w-8 text-yellow-400" />
                                         </div>
@@ -678,7 +819,7 @@ export default function AdminReports() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-400">Avg Response Time</p>
-                                                <p className="text-2xl font-bold">245ms</p>
+                                                <p className="text-2xl font-bold">{reportsData.system.avg_response_time}ms</p>
                                             </div>
                                             <TrendingUp className="h-8 w-8 text-purple-400" />
                                         </div>
@@ -693,13 +834,7 @@ export default function AdminReports() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-3">
-                                        {[
-                                            { time: '2 hours ago', error: 'Video streaming buffer timeout', severity: 'Medium' },
-                                            { time: '5 hours ago', error: 'Database connection timeout', severity: 'High' },
-                                            { time: '1 day ago', error: 'Payment gateway timeout', severity: 'Medium' },
-                                            { time: '2 days ago', error: 'CDN cache miss rate high', severity: 'Low' },
-                                            { time: '3 days ago', error: 'User authentication failure', severity: 'Medium' },
-                                        ].map((error, index) => (
+                                        {reportsData.system.recent_errors.map((error, index) => (
                                             <div key={index} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
                                                 <div className="flex items-center space-x-3">
                                                     <AlertTriangle className={`h-5 w-5 ${
@@ -732,42 +867,25 @@ export default function AdminReports() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <span className="flex-1">Video Content</span>
-                                            <div className="flex-1 mx-4">
-                                                <div className="w-full bg-gray-700 rounded-full h-3">
-                                                    <div className="bg-blue-600 h-3 rounded-full" style={{ width: '75%' }}></div>
+                                        {reportsData.system.storage_breakdown.map((item, index) => (
+                                            <div key={item.category} className="flex items-center justify-between">
+                                                <span className="flex-1">{item.category}</span>
+                                                <div className="flex-1 mx-4">
+                                                    <div className="w-full bg-gray-700 rounded-full h-3">
+                                                        <div
+                                                            className={`h-3 rounded-full ${
+                                                                index === 0 ? 'bg-blue-600' :
+                                                                index === 1 ? 'bg-green-600' :
+                                                                index === 2 ? 'bg-yellow-600' :
+                                                                'bg-gray-600'
+                                                            }`}
+                                                            style={{ width: `${item.percentage}%` }}
+                                                        ></div>
+                                                    </div>
                                                 </div>
+                                                <span className="text-sm text-gray-400 w-20 text-right">{item.used}</span>
                                             </div>
-                                            <span className="text-sm text-gray-400 w-20 text-right">1.8TB</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="flex-1">User Data</span>
-                                            <div className="flex-1 mx-4">
-                                                <div className="w-full bg-gray-700 rounded-full h-3">
-                                                    <div className="bg-green-600 h-3 rounded-full" style={{ width: '15%' }}></div>
-                                                </div>
-                                            </div>
-                                            <span className="text-sm text-gray-400 w-20 text-right">360GB</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="flex-1">System Logs</span>
-                                            <div className="flex-1 mx-4">
-                                                <div className="w-full bg-gray-700 rounded-full h-3">
-                                                    <div className="bg-yellow-600 h-3 rounded-full" style={{ width: '5%' }}></div>
-                                                </div>
-                                            </div>
-                                            <span className="text-sm text-gray-400 w-20 text-right">120GB</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="flex-1">Available</span>
-                                            <div className="flex-1 mx-4">
-                                                <div className="w-full bg-gray-700 rounded-full h-3">
-                                                    <div className="bg-gray-600 h-3 rounded-full" style={{ width: '5%' }}></div>
-                                                </div>
-                                            </div>
-                                            <span className="text-sm text-gray-400 w-20 text-right">120GB</span>
-                                        </div>
+                                        ))}
                                     </div>
                                 </CardContent>
                             </Card>

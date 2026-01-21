@@ -105,10 +105,9 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                         </div>
 
                         <div className="text-center text-sm text-muted-foreground">
-                            Don't have an account?{' '}
-                            <TextLink href={register()} tabIndex={5}>
-                                Sign up
-                            </TextLink>
+                            <Link href="/donate" className="text-green-600 hover:text-green-700">
+                                Donate
+                            </Link>
                         </div>
                     </>
                 )}

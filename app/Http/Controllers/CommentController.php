@@ -79,7 +79,7 @@ class CommentController extends Controller
 
     public function adminIndex(Request $request)
     {
-        $query = Comment::with(['user', 'replies']);
+        $query = Comment::with(['user', 'replies', 'movie']);
 
         // Search
         if ($request->has('search') && $request->search) {
@@ -90,14 +90,23 @@ class CommentController extends Controller
             });
         }
 
-        // Movie filter
-        if ($request->has('movie_filter') && $request->movie_filter !== 'all') {
-            $query->where('movie_id', $request->movie_filter);
-        }
 
         // Status filter
         if ($request->has('status_filter') && $request->status_filter !== 'all') {
             $query->where('status', $request->status_filter);
+        }
+
+        // Movie type filter
+        if ($request->has('movie_type_filter') && $request->movie_type_filter !== 'all') {
+            if ($request->movie_type_filter === 'izisobanuye') {
+                // Comments on izisobanuye movies
+                $izisobanuyeMovieIds = \App\Models\IzisobanuyeMovie::pluck('id')->toArray();
+                $query->whereIn('movie_id', $izisobanuyeMovieIds);
+            } elseif ($request->movie_type_filter === 'izidasobanuye') {
+                // Comments on izidasobanuye movies (TMDB movies)
+                $izisobanuyeMovieIds = \App\Models\IzisobanuyeMovie::pluck('id')->toArray();
+                $query->whereNotIn('movie_id', $izisobanuyeMovieIds);
+            }
         }
 
         // Date filter

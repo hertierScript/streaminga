@@ -13,11 +13,23 @@ export default defineConfig({
         }),
         react(),
         tailwindcss(),
-        wayfinder({
-            formVariants: true,
-        }),
+        // wayfinder({
+        //     formVariants: true,
+        // }),
     ],
     esbuild: {
         jsx: 'automatic',
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    vendor: ['react', 'react-dom'],
+                    ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+                    inertia: ['@inertiajs/react'],
+                },
+            },
+        },
+        chunkSizeWarningLimit: 1000,
     },
 });

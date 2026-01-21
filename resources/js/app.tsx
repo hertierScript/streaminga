@@ -7,28 +7,26 @@ import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 import { AnnouncementProvider } from './hooks/use-announcement';
 import { LoadingScreen } from './components/loading-screen';
+import { AuthProvider } from './contexts/AuthContext';
+
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
 
 function AppWrapper({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
     const [navigating, setNavigating] = useState(false);
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setLoading(false);
-        }, 2000);
-
-        return () => clearTimeout(timer);
+        // Remove artificial delay - show content immediately
+        setLoading(false);
     }, []);
 
     useEffect(() => {
         const handleShowLoading = () => setNavigating(true);
         const handleFinish = () => {
-            // Show spinner for at least 2 seconds during navigation
-            setTimeout(() => {
-                setNavigating(false);
-            }, 2000);
+            // Show spinner briefly during navigation, then hide immediately
+            setNavigating(false);
         };
 
         window.addEventListener('showLoading', handleShowLoading);
@@ -58,11 +56,13 @@ createInertiaApp({
         const root = createRoot(el);
 
         root.render(
-            <AnnouncementProvider>
-                <AppWrapper>
-                    <App {...props} />
-                </AppWrapper>
-            </AnnouncementProvider>
+            <AuthProvider>
+                <AnnouncementProvider>
+                    <AppWrapper>
+                        <App {...props} />
+                    </AppWrapper>
+                </AnnouncementProvider>
+            </AuthProvider>
         );
     },
     progress: false,
