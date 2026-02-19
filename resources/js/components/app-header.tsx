@@ -1,12 +1,6 @@
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Icon } from '@/components/icon';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
     NavigationMenu,
     NavigationMenuItem,
@@ -26,7 +20,6 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { UserMenuContent } from '@/components/user-menu-content';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
@@ -238,9 +231,12 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                                 ))}
                             </div>
                         </div>
-                        <Link href="/donate" className="rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700">
+                        <a
+                            href="tel:*182*8*1*1090675#"
+                            className="rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700"
+                        >
                             Donate
-                        </Link>
+                        </a>
                     </div>
                 </div>
             </div>

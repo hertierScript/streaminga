@@ -297,13 +297,13 @@ export default function Izisobanuye({ movies, hero }: Props) {
                                 </Button>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <Link
-                                    href="/donate"
+                                <a
+                                    href="tel:*182*8*1*1090675#"
                                     className="rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-green-700 sm:px-4 sm:py-2"
                                 >
                                     <Heart className="mr-1 inline h-3 w-3 sm:h-4 sm:w-4" />
                                     Donate
-                                </Link>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -386,16 +386,13 @@ export default function Izisobanuye({ movies, hero }: Props) {
                                         izidasobanuye
                                     </Link>
                                     <div className="space-y-2">
-                                        <Link
-                                            href="/donate"
+                                        <a
+                                            href="tel:*182*8*1*1090675#"
                                             className="block py-2 text-gray-300 transition-colors hover:text-white"
-                                            onClick={() =>
-                                                setIsMobileMenuOpen(false)
-                                            }
                                         >
                                             <Heart className="mr-2 inline h-4 w-4" />
                                             Donate
-                                        </Link>
+                                        </a>
                                     </div>
                                 </div>
                             </div>

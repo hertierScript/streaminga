@@ -307,14 +307,13 @@ export default function Izidasobanuye({}: Props) {
                                     )}
                                 </Button>
                             </div>
-                            <Link
-                                href="/donate"
-                                preserveScroll
+                            <a
+                                href="tel:*182*8*1*1090675#"
                                 className="rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700"
                             >
                                 <Heart className="mr-1 inline h-4 w-4" />
                                 Donate
-                            </Link>
+                            </a>
                         </div>
                     </div>
 
@@ -397,17 +396,13 @@ export default function Izidasobanuye({}: Props) {
                                         <Film className="mr-2 inline h-4 w-4" />
                                         izidasobanuye
                                     </Link>
-                                    <Link
-                                        href="/donate"
-                                        preserveScroll
+                                    <a
+                                        href="tel:*182*8*1*1090675#"
                                         className="py-2 text-gray-300 transition-colors hover:text-white"
-                                        onClick={() =>
-                                            setIsMobileMenuOpen(false)
-                                        }
                                     >
                                         <Heart className="mr-2 inline h-4 w-4" />
                                         Donate
-                                    </Link>
+                                    </a>
                                 </div>
                             </div>
                         </div>

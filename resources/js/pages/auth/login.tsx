@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
-import { home, register } from '@/routes';
+import { home } from '@/routes';
 import { request } from '@/routes/password';
 import { Form, Head, Link } from '@inertiajs/react';
 import { ChevronLeft, LoaderCircle } from 'lucide-react';
@@ -26,7 +26,10 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
             <div className="w-full">
                 <Link href={home()}>
-                    <Button variant="ghost" className="mb-4 text-gray-300 hover:text-white">
+                    <Button
+                        variant="ghost"
+                        className="mb-4 text-gray-300 hover:text-white"
+                    >
                         <ChevronLeft className="mr-2 h-4 w-4" />
                         Back to Home
                     </Button>
@@ -105,9 +108,12 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                         </div>
 
                         <div className="text-center text-sm text-muted-foreground">
-                            <Link href="/donate" className="text-green-600 hover:text-green-700">
+                            <a
+                                href="tel:*182*8*1*1090675#"
+                                className="text-green-600 hover:text-green-700"
+                            >
                                 Donate
-                            </Link>
+                            </a>
                         </div>
                     </>
                 )}
