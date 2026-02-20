@@ -15,8 +15,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         $role = $user->role;
 
         if ($role === 'admin' || $role === 'super_admin') {
-            // Redirect admin to main site to test navigation
-            return redirect('/izisobanuye');
+            // Redirect admin to admin dashboard
+            return redirect()->route('admin.dashboard');
         } else {
             // End users are redirected to the movie browsing page
             return redirect('/izisobanuye');
@@ -147,6 +147,37 @@ Route::get('izidasobanuye', function () {
     return Inertia::render('izidasobanuye');
 })->name('izidasobanuye');
 
+// Category page with movies by genre
+Route::get('category/{category}', function (Illuminate\Http\Request $request, $category) {
+    // Map URL slugs to display labels
+    $labels = [
+        'popular' => 'Popular',
+        'action' => 'Action',
+        'horror' => 'Horror',
+        'comedy' => 'Comedy',
+        'drama' => 'Drama',
+        'romance' => 'Romance',
+        'animation' => 'Animation',
+        'thriller' => 'Thriller',
+        'sci-fi' => 'Science Fiction',
+        'crime' => 'Crime',
+        'adventure' => 'Adventure',
+        'fantasy' => 'Fantasy',
+        'family' => 'Family',
+    ];
+    
+    $label = $labels[$category] ?? ucfirst($category);
+    $apiKey = config('services.tmdb.key');
+    $page = $request->query('page', 1);
+    
+    return Inertia::render('category', [
+        'category' => $category,
+        'categoryLabel' => $label,
+        'tmdbApiKey' => $apiKey,
+        'initialPage' => (int) $page,
+    ]);
+})->name('category');
+
 // Debug route to check auth status
 Route::get('auth-status', function () {
     return response()->json([
@@ -155,6 +186,16 @@ Route::get('auth-status', function () {
         'session_id' => session()->getId()
     ]);
 })->name('auth.status');
+
+// Test route to automatically login as admin for testing purposes
+Route::get('test-login', function () {
+    $user = \App\Models\User::where('email', 'hertiermunyaka047@gmail.com')->first();
+    if ($user) {
+        auth()->login($user);
+        return redirect()->route('admin.movies');
+    }
+    return response()->json(['error' => 'Admin user not found'], 404);
+});
 
 // Sanctum API routes
 Route::middleware('auth:sanctum')->get('/api/user', function (Request $request) {
@@ -226,6 +267,8 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::get('api/recent-activities', [App\Http\Controllers\MovieController::class, 'getRecentActivities']);
     Route::get('api/top-performing-movies', [App\Http\Controllers\MovieController::class, 'getTopPerformingMovies']);
     Route::get('api/recent-izisobanuye-movies', [App\Http\Controllers\MovieController::class, 'getRecentIzisobanuyeMovies']);
+    Route::get('api/recent-untranslated-movies', [App\Http\Controllers\MovieController::class, 'getRecentUntranslatedMovies']);
+    Route::get('api/untranslated-movies', [App\Http\Controllers\MovieController::class, 'getPaginatedUntranslatedMovies']);
     Route::get('api/movie-counts', [App\Http\Controllers\MovieController::class, 'getMovieCounts']);
     Route::get('api/notification-counts', [App\Http\Controllers\MovieController::class, 'getNotificationCounts']);
     Route::get('api/reports-data', [App\Http\Controllers\MovieController::class, 'getReportsData']);

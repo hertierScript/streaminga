@@ -1,4 +1,5 @@
 import { AnnouncementBar } from '@/components/announcement-bar';
+import { LoadingScreen } from '@/components/loading-screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,8 +24,17 @@ export default function Welcome() {
     const [search, setSearch] = useState('');
     const [sortBy, setSortBy] = useState('category');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const { message, backgroundColor, dismissible, scroll } = useAnnouncement();
     const { url } = usePage();
+
+    // Show loading spinner for 1 second
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsLoading(false);
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Read URL parameters on component mount
     useEffect(() => {
@@ -68,6 +78,7 @@ export default function Welcome() {
 
     return (
         <>
+            {isLoading && <LoadingScreen />}
             <Head title="Izidasobanuye - Uninterpreted Movies" />
 
             {/* Professional Navbar */}
@@ -345,47 +356,72 @@ export default function Welcome() {
                 </div>
 
                 <div className="container mx-auto px-4 py-8">
-                    {/* Category-based Horizontal Rows */}
+                    {/* Search Results or Category-based Horizontal Rows */}
                     <div className="space-y-12">
-                        {/* Recent Movies */}
-                        <MovieRow
-                            title="Recent Movies"
-                            movies={uninterpretedMovies
-                                .filter((m) => m.category === 'recent')
-                                .slice(0, 12)}
-                        />
+                        {search.trim() ? (
+                            filteredMovies.length > 0 ? (
+                                <MovieRow
+                                    title="Search Results"
+                                    movies={filteredMovies.slice(0, 12)}
+                                />
+                            ) : (
+                                <div className="py-12 text-center">
+                                    <div className="mb-4 text-6xl">🎬</div>
+                                    <h3 className="mb-2 text-xl font-semibold text-white">
+                                        No movie found
+                                    </h3>
+                                    <p className="text-gray-400">
+                                        We couldn't find any movies matching "
+                                        {search}". Please try a different search
+                                        term.
+                                    </p>
+                                </div>
+                            )
+                        ) : (
+                            <>
+                                {/* Recent Movies */}
+                                <MovieRow
+                                    title="Recent Movies"
+                                    movies={uninterpretedMovies
+                                        .filter((m) => m.category === 'recent')
+                                        .slice(0, 12)}
+                                />
 
-                        {/* Romance Movies */}
-                        <MovieRow
-                            title="Romance"
-                            movies={uninterpretedMovies
-                                .filter((m) => m.category === 'romance')
-                                .slice(0, 12)}
-                        />
+                                {/* Romance Movies */}
+                                <MovieRow
+                                    title="Romance"
+                                    movies={uninterpretedMovies
+                                        .filter((m) => m.category === 'romance')
+                                        .slice(0, 12)}
+                                />
 
-                        {/* Hot Seasons (TV Shows) */}
-                        <MovieRow
-                            title="Hot Seasons"
-                            movies={uninterpretedMovies
-                                .filter((m) => m.category === 'hot-seasons')
-                                .slice(0, 12)}
-                        />
+                                {/* Hot Seasons (TV Shows) */}
+                                <MovieRow
+                                    title="Hot Seasons"
+                                    movies={uninterpretedMovies
+                                        .filter(
+                                            (m) => m.category === 'hot-seasons',
+                                        )
+                                        .slice(0, 12)}
+                                />
 
-                        {/* Action Movies */}
-                        <MovieRow
-                            title="Action"
-                            movies={uninterpretedMovies
-                                .filter((m) => m.category === 'action')
-                                .slice(0, 12)}
-                        />
+                                {/* Action Movies */}
+                                <MovieRow
+                                    title="Action"
+                                    movies={uninterpretedMovies
+                                        .filter((m) => m.category === 'action')
+                                        .slice(0, 12)}
+                                />
 
-                        {/* Drama Movies */}
-                        <MovieRow
-                            title="Drama"
-                            movies={uninterpretedMovies
-                                .filter((m) => m.category === 'drama')
-                                .slice(0, 12)}
-                        />
+                                {/* Drama Movies */}
+                                <MovieRow
+                                    title="Drama"
+                                    movies={uninterpretedMovies
+                                        .filter((m) => m.category === 'drama')
+                                        .slice(0, 12)}
+                                />
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -537,6 +573,17 @@ export default function Welcome() {
                                 © {new Date().getFullYear()} streaminga. All
                                 rights reserved.
                             </p>
+                            <p className="mt-2 text-gray-400">
+                                Munyakazi (INTARE) created this website.{' '}
+                                <a
+                                    href="https://munyakazi.vercel.app"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-red-500 hover:text-red-400"
+                                >
+                                    View Portfolio
+                                </a>
+                            </p>
                         </div>
                     </div>
                 </footer>
@@ -568,9 +615,35 @@ function MovieRow({ title, movies }: { title: string; movies: Movie[] }) {
                     className="flex gap-4 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     style={{ transform: `translateX(-${scrollPosition}px)` }}
                 >
-                    {movies.map((movie) => (
-                        <MovieCard key={movie.id} movie={movie} />
+                    {movies.map((movie, index) => (
+                        <MovieCard key={`${movie.id}-${index}`} movie={movie} />
                     ))}
+
+                    {/* See More Card */}
+                    <div
+                        className="flex h-[420px] w-[220px] flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-600 bg-gray-800/50 transition-all hover:border-red-500 hover:bg-gray-800 sm:h-[460px] sm:max-w-[250px] md:h-[480px]"
+                        onClick={() => {
+                            // Map category to URL slug
+                            const categoryMap: { [key: string]: string } = {
+                                'Recent Movies': 'popular',
+                                Romance: 'romance',
+                                'Hot Seasons': 'popular',
+                                Action: 'action',
+                                Drama: 'drama',
+                            };
+                            const slug =
+                                categoryMap[title] || title.toLowerCase();
+                            window.location.href = `/category/${slug}`;
+                        }}
+                    >
+                        <div className="text-center">
+                            <div className="mb-2 text-4xl text-gray-400">→</div>
+                            <div className="text-sm font-semibold text-gray-300">
+                                See more
+                            </div>
+                            <div className="text-xs text-gray-500">{title}</div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Scroll Buttons */}

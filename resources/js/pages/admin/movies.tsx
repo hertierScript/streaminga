@@ -16,6 +16,7 @@ import {
     ArrowUp,
     ArrowUpDown,
     Edit,
+    Eye,
     Film,
     Filter,
     Play,
@@ -51,22 +52,54 @@ export default function AdminMovies() {
     const [genreFilter, setGenreFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
     const [activeTab, setActiveTab] = useState<'izidasobanuye' | 'izisobanuye'>(
-        'izisobanuye',
+        'izidasobanuye',
     );
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
     const [sortBy, setSortBy] = useState('title');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
     // Fetch movies from API
     useEffect(() => {
-        fetchMovies();
+        if (activeTab === 'izidasobanuye') {
+            fetchMovies(currentPage, searchTerm);
+        } else {
+            fetchMovies(1, searchTerm);
+        }
         fetchIzisobanuyeMovies();
-    }, []);
+    }, [currentPage, activeTab, searchTerm]);
 
-    const fetchMovies = async () => {
+    const fetchMovies = async (page: number = 1, search: string = '') => {
         try {
-            const response = await fetch('/admin/api/movies');
-            const data = await response.json();
-            setMovies(data.data || []);
+            // For izidasobanuye, fetch from TMDB API with pagination
+            if (activeTab === 'izidasobanuye') {
+                const params = new URLSearchParams({
+                    page: page.toString(),
+                    per_page: '20',
+                });
+
+                if (search) {
+                    params.append('search', search);
+                }
+
+                const response = await fetch(
+                    `/admin/api/untranslated-movies?${params.toString()}`,
+                );
+                const data = await response.json();
+                setMovies(data.data || []);
+                setTotalPages(data.last_page || 1);
+                setCurrentPage(data.current_page || 1);
+                setTotalItems(data.total || 0);
+            } else {
+                // For izisobanuye, fetch from local database
+                const response = await fetch('/admin/api/movies');
+                const data = await response.json();
+                setMovies(data.data || []);
+                setTotalPages(1);
+                setCurrentPage(1);
+                setTotalItems(data.data?.length || 0);
+            }
         } catch (error) {
             console.error('Error fetching movies:', error);
         } finally {
@@ -75,58 +108,73 @@ export default function AdminMovies() {
     };
 
     const fetchIzisobanuyeMovies = async () => {
-        // Static data for Izisobanuye movies
-        const staticIzisobanuyeMovies = [
-            {
-                id: 1,
-                title: 'Sample Izisobanuye Movie 1',
-                description: 'A sample interpreted movie for demonstration purposes.',
-                poster_path: '/Images/default-movie.jpg',
-                rating: 8.5,
-                genres: ['Drama', 'Cultural'],
-                release_year: 2024,
-                duration: 120,
-                interpreter: 'Local Director',
-                trailer_url: '',
-                view_count: 0,
-                is_deleted_for_users: false,
-                created_at: '2024-01-01T00:00:00.000000Z',
-                updated_at: '2024-01-01T00:00:00.000000Z',
-            },
-            {
-                id: 2,
-                title: 'Sample Izisobanuye Movie 2',
-                description: 'Another sample interpreted movie showcasing local talent.',
-                poster_path: '/Images/default-movie.jpg',
-                rating: 9.0,
-                genres: ['Comedy', 'Family'],
-                release_year: 2024,
-                duration: 95,
-                interpreter: 'Community Theater',
-                trailer_url: '',
-                view_count: 0,
-                is_deleted_for_users: false,
-                created_at: '2024-01-02T00:00:00.000000Z',
-                updated_at: '2024-01-02T00:00:00.000000Z',
-            },
-            {
-                id: 3,
-                title: 'Sample Izisobanuye Movie 3',
-                description: 'A documentary about local culture and traditions.',
-                poster_path: '/Images/default-movie.jpg',
-                rating: 8.8,
-                genres: ['Documentary', 'Educational'],
-                release_year: 2024,
-                duration: 85,
-                interpreter: 'Cultural Group',
-                trailer_url: '',
-                view_count: 0,
-                is_deleted_for_users: false,
-                created_at: '2024-01-03T00:00:00.000000Z',
-                updated_at: '2024-01-03T00:00:00.000000Z',
-            },
-        ];
-        setIzisobanuyeMovies(staticIzisobanuyeMovies);
+        try {
+            const params = new URLSearchParams();
+            if (searchTerm) {
+                params.append('search', searchTerm);
+            }
+            
+            const response = await fetch(`/admin/api/izisobanuye-movies?${params.toString()}`);
+            const data = await response.json();
+            setIzisobanuyeMovies(data.data || []);
+        } catch (error) {
+            console.error('Error fetching Izisobanuye movies:', error);
+            // Fallback to static data if API fails
+            const staticIzisobanuyeMovies = [
+                {
+                    id: 1,
+                    title: 'Sample Izisobanuye Movie 1',
+                    description:
+                        'A sample interpreted movie for demonstration purposes.',
+                    poster_path: '/Images/default-movie.jpg',
+                    rating: 8.5,
+                    genres: ['Drama', 'Cultural'],
+                    release_year: 2024,
+                    duration: 120,
+                    interpreter: 'Local Director',
+                    trailer_url: '',
+                    view_count: 0,
+                    is_deleted_for_users: false,
+                    created_at: '2024-01-01T00:00:00.000000Z',
+                    updated_at: '2024-01-01T00:00:00.000000Z',
+                },
+                {
+                    id: 2,
+                    title: 'Sample Izisobanuye Movie 2',
+                    description:
+                        'Another sample interpreted movie showcasing local talent.',
+                    poster_path: '/Images/default-movie.jpg',
+                    rating: 9.0,
+                    genres: ['Comedy', 'Family'],
+                    release_year: 2024,
+                    duration: 95,
+                    interpreter: 'Community Theater',
+                    trailer_url: '',
+                    view_count: 0,
+                    is_deleted_for_users: false,
+                    created_at: '2024-01-02T00:00:00.000000Z',
+                    updated_at: '2024-01-02T00:00:00.000000Z',
+                },
+                {
+                    id: 3,
+                    title: 'Sample Izisobanuye Movie 3',
+                    description:
+                        'A documentary about local culture and traditions.',
+                    poster_path: '/Images/default-movie.jpg',
+                    rating: 8.8,
+                    genres: ['Documentary', 'Educational'],
+                    release_year: 2024,
+                    duration: 85,
+                    interpreter: 'Cultural Group',
+                    trailer_url: '',
+                    view_count: 0,
+                    is_deleted_for_users: false,
+                    created_at: '2024-01-03T00:00:00.000000Z',
+                    updated_at: '2024-01-03T00:00:00.000000Z',
+                },
+            ];
+            setIzisobanuyeMovies(staticIzisobanuyeMovies);
+        }
     };
 
     // Get current movies based on active tab
@@ -444,17 +492,10 @@ export default function AdminMovies() {
                 {/* Tabs */}
                 <div className="mb-6 flex space-x-1 rounded-lg bg-gray-800 p-1">
                     <button
-                        onClick={() => setActiveTab('izisobanuye')}
-                        className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                            activeTab === 'izisobanuye'
-                                ? 'bg-red-600 text-white'
-                                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                        }`}
-                    >
-                        Izisobanuye Movies
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('izidasobanuye')}
+                        onClick={() => {
+                            setActiveTab('izidasobanuye');
+                            setCurrentPage(1);
+                        }}
                         className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                             activeTab === 'izidasobanuye'
                                 ? 'bg-red-600 text-white'
@@ -462,6 +503,19 @@ export default function AdminMovies() {
                         }`}
                     >
                         Izidasobanuye Movies
+                    </button>
+                    <button
+                        onClick={() => {
+                            setActiveTab('izisobanuye');
+                            setCurrentPage(1);
+                        }}
+                        className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                            activeTab === 'izisobanuye'
+                                ? 'bg-red-600 text-white'
+                                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        }`}
+                    >
+                        Izisobanuye Movies
                     </button>
                 </div>
 
@@ -844,7 +898,8 @@ export default function AdminMovies() {
                                     <div className="border-t border-gray-700 pt-4">
                                         <div className="mb-2 flex items-center justify-between text-sm">
                                             <span className="text-gray-300">
-                                                {uploadStatus || 'Uploading movie...'}
+                                                {uploadStatus ||
+                                                    'Uploading movie...'}
                                             </span>
                                             <span className="font-medium text-white">
                                                 {uploadProgress}%
@@ -973,17 +1028,21 @@ export default function AdminMovies() {
                                             <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-300 uppercase">
                                                 Description
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-300 uppercase">
-                                                Genres
-                                            </th>
                                             {activeTab === 'izidasobanuye' && (
                                                 <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-300 uppercase">
                                                     Type
                                                 </th>
                                             )}
-                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-300 uppercase">
-                                                Interpreter
-                                            </th>
+                                            {activeTab === 'izisobanuye' && (
+                                                <>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-300 uppercase">
+                                                        Genres
+                                                    </th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-300 uppercase">
+                                                        Interpreter
+                                                    </th>
+                                                </>
+                                            )}
                                             <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-300 uppercase">
                                                 <button
                                                     onClick={() =>
@@ -1009,6 +1068,9 @@ export default function AdminMovies() {
                                                     <span>Rating</span>
                                                     {getSortIcon('rating')}
                                                 </button>
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-300 uppercase">
+                                                Views
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-300 uppercase">
                                                 Status
@@ -1053,28 +1115,28 @@ export default function AdminMovies() {
                                                 </td>
                                                 {activeTab ===
                                                     'izidasobanuye' && (
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <Badge
-                                                            className={
-                                                                movie.interpreter
-                                                                    ? 'bg-blue-600 hover:bg-blue-700'
-                                                                    : 'bg-green-600 hover:bg-green-700'
-                                                            }
-                                                        >
-                                                            {movie.interpreter
-                                                                ? 'Izisobanuye'
-                                                                : 'Izidasobanuye'}
-                                                        </Badge>
-                                                    </td>
+                                                    <>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <Badge className="bg-green-600 hover:bg-green-700">
+                                                                Izidasobanuye
+                                                            </Badge>
+                                                        </td>
+                                                    </>
                                                 )}
-                                                <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-300">
-                                                    {movie.genres?.join(', ') ||
-                                                        'N/A'}
-                                                </td>
-                                                <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-300">
-                                                    {movie.interpreter ||
-                                                        'Unknown'}
-                                                </td>
+                                                {activeTab ===
+                                                    'izisobanuye' && (
+                                                    <>
+                                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-300">
+                                                            {movie.genres?.join(
+                                                                ', ',
+                                                            ) || 'N/A'}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-300">
+                                                            {movie.interpreter ||
+                                                                'Unknown'}
+                                                        </td>
+                                                    </>
+                                                )}
                                                 <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-300">
                                                     {movie.release_year ||
                                                         'N/A'}
@@ -1084,6 +1146,15 @@ export default function AdminMovies() {
                                                         <Star className="mr-1 h-4 w-4 text-yellow-400" />
                                                         <span className="font-medium">
                                                             {movie.rating}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center text-sm">
+                                                        <Eye className="mr-1 h-4 w-4 text-blue-400" />
+                                                        <span className="font-medium">
+                                                            {movie.view_count ||
+                                                                0}
                                                         </span>
                                                     </div>
                                                 </td>
@@ -1154,6 +1225,47 @@ export default function AdminMovies() {
                                     </p>
                                 </div>
                             )}
+
+                            {/* Pagination */}
+                            {activeTab === 'izidasobanuye' &&
+                                totalPages > 1 && (
+                                    <div className="flex items-center justify-between border-t border-gray-700 px-6 py-4">
+                                        <div className="text-sm text-gray-400">
+                                            Showing page {currentPage} of{' '}
+                                            {totalPages} ({totalItems} movies)
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() =>
+                                                    setCurrentPage(
+                                                        currentPage - 1,
+                                                    )
+                                                }
+                                                disabled={currentPage === 1}
+                                                className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+                                            >
+                                                Previous
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() =>
+                                                    setCurrentPage(
+                                                        currentPage + 1,
+                                                    )
+                                                }
+                                                disabled={
+                                                    currentPage === totalPages
+                                                }
+                                                className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+                                            >
+                                                Next
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                         </CardContent>
                     </Card>
                 </div>

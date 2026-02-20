@@ -29,14 +29,17 @@ class MovieController extends Controller
     public function search(Request $request)
     {
         $query = $request->query('q');
+        $page = $request->query('page', 1);
+        
         if (!$query) {
             return response()->json(['error' => 'Query parameter required'], 400);
         }
-
+        
         $apiKey = config('services.tmdb.key');
         $response = Http::get("https://api.themoviedb.org/3/search/movie", [
             'api_key' => $apiKey,
             'query' => $query,
+            'page' => $page,
         ]);
 
         if ($response->successful()) {
@@ -622,56 +625,147 @@ class MovieController extends Controller
 
     public function getDashboardStats()
     {
-        $totalViews = Movie::sum('view_count');
+        // Get izidasobanuye (untranslated) movies count from TMDB API
+        // These are fetched from the TMDB API and represent untranslated content
+        $apiKey = config('services.tmdb.key');
+        
+        // Cache the TMDB response for 1 hour
+        $totalUntranslated = Cache::remember('tmdb_untranslated_count', 3600, function () use ($apiKey) {
+            // Fetch from multiple TMDB endpoints to get total untranslated movies
+            $total = 0;
+            
+            // Get popular movies count from TMDB
+            $popularResponse = Http::get("https://api.themoviedb.org/3/movie/popular", [
+                'api_key' => $apiKey,
+            ]);
+            if ($popularResponse->successful()) {
+                $popularData = $popularResponse->json();
+                $total = $popularData['total_results'] ?? 0;
+            }
+            
+            return $total;
+        });
+        
+        // Get izidasobanuye (untranslated) views from MovieViewNotification (movies with is_deleted_for_users = true)
+        $untranslatedViews = MovieViewNotification::whereHas('movie', function ($query) {
+            $query->where('is_deleted_for_users', true);
+        })->count();
+        
+        // Also get view counts from Movie table for both translated and untranslated
+        $movieViewCount = Movie::sum('view_count');
+        
+        // Get izisobanuye movies count (local content from database)
+        $izisobanuyeMovieCount = IzisobanuyeMovie::where('is_deleted_for_users', false)->count();
+        $izisobanuyeViews = IzisobanuyeMovie::where('is_deleted_for_users', false)->sum('view_count');
+
+        // Total movies in the whole system (TMDB + local)
+        $totalMovies = $totalUntranslated + $izisobanuyeMovieCount;
+
+        // Total watch time in seconds
+        $totalWatchTime = MovieViewNotification::whereNotNull('watch_duration')->sum('watch_duration');
+
+        // Comments count
         $totalComments = \App\Models\Comment::count();
-        $totalSubscribers = 0; // TODO: Implement when subscription system is added
-        $revenue = 0; // TODO: Implement when payment system is added
+
+        // Total subscribers (real data)
+        $totalSubscribers = \App\Models\User::where('subscription_status', 'active')->count();
+
+        // Revenue from active subscriptions
+        $revenue = \App\Models\User::where('subscription_status', 'active')->count() * 5000; // Assuming 5000 RWF per subscription
 
         return response()->json([
-            'total_views' => $totalViews,
+            'untranslated_views' => $untranslatedViews,
+            'untranslated_movie_count' => $totalUntranslated,
+            'translated_views' => 0,
+            'translated_movie_count' => 0,
+            'izisobanuye_views' => $izisobanuyeViews,
+            'izisobanuye_movie_count' => $izisobanuyeMovieCount,
+            'total_views' => $untranslatedViews + $izisobanuyeViews + $movieViewCount,
             'total_comments' => $totalComments,
             'total_subscribers' => $totalSubscribers,
             'revenue' => $revenue,
+            'total_movies' => $totalMovies,
+            'total_watch_time' => $totalWatchTime,
         ]);
     }
 
     public function getRecentActivities()
     {
-        $activities = MovieViewNotification::with('movie')
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get()
-            ->map(function ($notification) {
-                return [
-                    'id' => $notification->id,
-                    'type' => 'movie_view',
-                    'message' => "Movie \"{$notification->movie_title}\" viewed {$notification->new_view_count} times",
-                    'timestamp' => $notification->created_at->diffForHumans(),
-                    'created_at' => $notification->created_at,
-                ];
-            });
-
-        // Add some mock activities for variety
-        $mockActivities = [
-            [
-                'id' => 'mock_1',
+        $activities = [];
+        
+        // Get recent movie view notifications (real data) - increased to 5
+        $movieViews = MovieViewNotification::orderBy('created_at', 'desc')->take(5)->get();
+        foreach ($movieViews as $notification) {
+            $activities[] = [
+                'id' => 'view_' . $notification->id,
+                'type' => 'movie_view',
+                'message' => "Movie \"{$notification->movie_title}\" was watched",
+                'timestamp' => $notification->created_at->diffForHumans(),
+                'created_at' => $notification->created_at,
+                'icon' => 'play',
+            ];
+        }
+        
+        // Get recent user registrations (real data from users table) - increased to 5
+        $recentUsers = \App\Models\User::orderBy('created_at', 'desc')->take(5)->get();
+        foreach ($recentUsers as $user) {
+            $activities[] = [
+                'id' => 'user_' . $user->id,
                 'type' => 'user_registration',
-                'message' => 'New user registered',
-                'timestamp' => '2 minutes ago',
-                'created_at' => now()->subMinutes(2),
-            ],
-            [
-                'id' => 'mock_2',
+                'message' => "New user registered: " . ($user->name ?? 'User #' . $user->id),
+                'timestamp' => $user->created_at->diffForHumans(),
+                'created_at' => $user->created_at,
+                'icon' => 'user',
+            ];
+        }
+        
+        // Get recent subscription changes (real data from users table) - increased to 5
+        $subscribedUsers = \App\Models\User::where('subscription_status', 'active')
+            ->whereNotNull('subscription_start_date')
+            ->orderBy('subscription_start_date', 'desc')
+            ->take(5)
+            ->get();
+        foreach ($subscribedUsers as $user) {
+            $activities[] = [
+                'id' => 'sub_' . $user->id,
                 'type' => 'subscription',
-                'message' => 'New subscription purchased',
-                'timestamp' => '1 hour ago',
-                'created_at' => now()->subHour(),
-            ],
-        ];
+                'message' => "New subscription: " . ($user->name ?? 'User #' . $user->id),
+                'timestamp' => $user->subscription_start_date->diffForHumans(),
+                'created_at' => $user->subscription_start_date,
+                'icon' => 'credit-card',
+            ];
+        }
+        
+        // Get recent comments (real data) - increased to 5
+        $recentComments = \App\Models\Comment::orderBy('created_at', 'desc')->take(5)->get();
+        foreach ($recentComments as $comment) {
+            $activities[] = [
+                'id' => 'comment_' . $comment->id,
+                'type' => 'comment',
+                'message' => "New comment on movie",
+                'timestamp' => $comment->created_at->diffForHumans(),
+                'created_at' => $comment->created_at,
+                'icon' => 'message',
+            ];
+        }
+        
+        // Get recent izisobanuye movie uploads - increased to 5
+        $recentIzisobanuyeMovies = \App\Models\IzisobanuyeMovie::orderBy('created_at', 'desc')->take(5)->get();
+        foreach ($recentIzisobanuyeMovies as $movie) {
+            $activities[] = [
+                'id' => 'izisobanuye_' . $movie->id,
+                'type' => 'izisobanuye_upload',
+                'message' => "New izisobanuye movie uploaded: {$movie->title}",
+                'timestamp' => $movie->created_at->diffForHumans(),
+                'created_at' => $movie->created_at,
+                'icon' => 'upload',
+            ];
+        }
+        
+        // Sort all activities by created_at (most recent first) and take top 10
+        $allActivities = collect($activities)->sortByDesc('created_at')->take(10)->values();
 
-        $allActivities = collect($mockActivities)->merge($activities)->sortByDesc('created_at')->take(5);
-
-        return response()->json($allActivities->values());
+        return response()->json($allActivities);
     }
 
     public function getTopPerformingMovies()
@@ -709,6 +803,140 @@ class MovieController extends Controller
             });
 
         return response()->json($recentMovies);
+    }
+
+    public function getRecentUntranslatedMovies()
+    {
+        // Get untranslated movies from TMDB API (izidasobanuye)
+        $apiKey = config('services.tmdb.key');
+        
+        // Fetch popular movies from TMDB
+        $response = Http::get("https://api.themoviedb.org/3/movie/popular", [
+            'api_key' => $apiKey,
+            'page' => 1,
+        ]);
+        
+        if ($response->successful()) {
+            $data = $response->json();
+            $movies = $data['results'] ?? [];
+            
+            $recentMovies = collect($movies)->take(10)->map(function ($movie) {
+                return [
+                    'id' => $movie['id'],
+                    'tmdb_id' => $movie['id'],
+                    'title' => $movie['title'],
+                    'poster' => $movie['poster_path'] 
+                        ? 'https://image.tmdb.org/t/p/w500' . $movie['poster_path'] 
+                        : '/Images/default-movie.jpg',
+                    'rating' => $movie['vote_average'] ?? 0,
+                    'view_count' => 0,
+                    'release_year' => $movie['release_date'] 
+                        ? substr($movie['release_date'], 0, 4) 
+                        : null,
+                    'interpreter' => null, // TMDB movies don't have interpreter (untranslated)
+                    'created_at' => now(),
+                ];
+            });
+            
+            return response()->json($recentMovies);
+        }
+        
+        return response()->json([]);
+    }
+
+    // New paginated endpoint for admin movie management - fetches from TMDB API with view counts from local DB
+    public function getPaginatedUntranslatedMovies(Request $request)
+    {
+        $page = $request->get('page', 1);
+        $perPage = $request->get('per_page', 20);
+        $search = $request->get('search', '');
+        
+        $apiKey = config('services.tmdb.key');
+        
+        // Determine which endpoint to use: search or popular
+        $endpoint = $search
+            ? "https://api.themoviedb.org/3/search/movie"
+            : "https://api.themoviedb.org/3/movie/popular";
+        
+        // Build query parameters
+        $params = [
+            'api_key' => $apiKey,
+            'page' => $page,
+        ];
+        
+        if ($search) {
+            $params['query'] = $search;
+        }
+        
+        $response = Http::get($endpoint, $params);
+        
+        if ($response->successful()) {
+            $data = $response->json();
+            $movies = $data['results'] ?? [];
+            
+            // Get all TMDB IDs to fetch view counts from local database in one query
+            $tmdbIds = collect($movies)->pluck('id')->toArray();
+            $localMovies = Movie::whereIn('tmdb_id', $tmdbIds)->get()->keyBy('tmdb_id');
+            
+            $formattedMovies = collect($movies)->map(function ($movie) use ($localMovies) {
+                // Get view count from local database if available
+                $localMovie = $localMovies->get($movie['id']);
+                $viewCount = $localMovie ? $localMovie->view_count : 0;
+                
+                return [
+                    'id' => $movie['id'],
+                    'tmdb_id' => $movie['id'],
+                    'title' => $movie['title'],
+                    'description' => $movie['overview'] ?? '',
+                    'poster_path' => $movie['poster_path'] ?? null,
+                    'rating' => round($movie['vote_average'] ?? 0, 1),
+                    'genres' => [], // TMDB doesn't include genre names in basic response
+                    'release_year' => $movie['release_date'] 
+                        ? (int)substr($movie['release_date'], 0, 4) 
+                        : null,
+                    'duration' => $movie['runtime'] ?? null,
+                    'interpreter' => $localMovie ? $localMovie->interpreter : null,
+                    'trailer_url' => $localMovie ? $localMovie->trailer_url : null,
+                    'view_count' => $viewCount,
+                    'is_deleted_for_users' => $localMovie ? $localMovie->is_deleted_for_users : false,
+                    'created_at' => $localMovie ? $localMovie->created_at->toISOString() : now()->toISOString(),
+                    'updated_at' => $localMovie ? $localMovie->updated_at->toISOString() : now()->toISOString(),
+                ];
+            });
+            
+            // Build Laravel-style pagination response
+            return response()->json([
+                'current_page' => $page,
+                'data' => $formattedMovies,
+                'first_page_url' => url("/admin/api/untranslated-movies?page=1&per_page={$perPage}"),
+                'from' => ($page - 1) * $perPage + 1,
+                'last_page' => $data['total_pages'] ?? 1,
+                'last_page_url' => url("/admin/api/untranslated-movies?page=" . ($data['total_pages'] ?? 1) . "&per_page={$perPage}"),
+                'links' => [
+                    ['url' => $page > 1 ? url("/admin/api/untranslated-movies?page=" . ($page - 1) . "&per_page={$perPage}") : null, 'label' => '&laquo; Previous', 'active' => false],
+                    ['url' => url("/admin/api/untranslated-movies?page=1&per_page={$perPage}"), 'label' => '1', 'active' => $page === 1],
+                    ['url' => null, 'label' => '...', 'active' => false],
+                    ['url' => $page < ($data['total_pages'] ?? 1) ? url("/admin/api/untranslated-movies?page=" . ($page + 1) . "&per_page={$perPage}") : null, 'label' => 'Next &raquo;', 'active' => false],
+                ],
+                'next_page_url' => $page < ($data['total_pages'] ?? 1) 
+                    ? url("/admin/api/untranslated-movies?page=" . ($page + 1) . "&per_page={$perPage}") 
+                    : null,
+                'path' => url('/admin/api/untranslated-movies'),
+                'per_page' => $perPage,
+                'prev_page_url' => $page > 1 
+                    ? url("/admin/api/untranslated-movies?page=" . ($page - 1) . "&per_page={$perPage}") 
+                    : null,
+                'to' => min($page * $perPage, $data['total_results'] ?? $perPage),
+                'total' => $data['total_results'] ?? 0,
+            ]);
+        }
+        
+        return response()->json([
+            'current_page' => 1,
+            'data' => [],
+            'last_page' => 1,
+            'total' => 0,
+        ]);
     }
 
     public function getMovieCounts()

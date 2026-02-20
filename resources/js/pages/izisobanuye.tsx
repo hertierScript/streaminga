@@ -1,10 +1,12 @@
 import { AnnouncementBar } from '@/components/announcement-bar';
+import { LoadingScreen } from '@/components/loading-screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAnnouncement } from '@/hooks/use-announcement';
 import { Movie } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import axios from 'axios';
 import {
     ChevronLeft,
     ChevronRight,
@@ -27,8 +29,22 @@ export default function Izisobanuye({ movies, hero }: Props) {
     const [search, setSearch] = useState('');
     const [selectedGenre, setSelectedGenre] = useState('All');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    // Global search state - uses TMDB API
+    const [globalSearchResults, setGlobalSearchResults] = useState<Movie[]>([]);
+    const [isGlobalSearching, setIsGlobalSearching] = useState(false);
+    const [hasGlobalSearched, setHasGlobalSearched] = useState(false);
     const { message, backgroundColor, dismissible, scroll } = useAnnouncement();
     const { url, auth } = usePage().props as any;
+
+    // Show loading spinner for 1 second
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsLoading(false);
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Featured movies with local images - COMMENTED OUT to show only uploaded movies
     /*
@@ -189,8 +205,84 @@ export default function Izisobanuye({ movies, hero }: Props) {
         }
     }, []);
 
+    // Global search using TMDB API - searches ALL movies in database
+    useEffect(() => {
+        const performGlobalSearch = async () => {
+            if (!search.trim()) {
+                setGlobalSearchResults([]);
+                setHasGlobalSearched(false);
+                return;
+            }
+
+            setIsGlobalSearching(true);
+            setHasGlobalSearched(true);
+            
+            try {
+                // Call the server-side API which searches TMDB database
+                const response = await axios.get('/api/movies/search', {
+                    params: { q: search }
+                });
+
+                if (response.data && response.data.results) {
+                    const genreMap: { [key: number]: string } = {
+                        28: 'Action',
+                        27: 'Horror',
+                        35: 'Comedy',
+                        18: 'Drama',
+                        10749: 'Romance',
+                        16: 'Animation',
+                        53: 'Thriller',
+                        878: 'Science Fiction',
+                        80: 'Crime',
+                        12: 'Adventure',
+                        14: 'Fantasy',
+                        10751: 'Family',
+                    };
+
+                    const transformed = response.data.results.map(
+                        (movie: any) => ({
+                            id: movie.id,
+                            title: movie.title,
+                            poster: movie.poster_path
+                                ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                                : '/Images/default-movie.jpg',
+                            rating: movie.vote_average || 0,
+                            genre: (movie.genre_ids || []).map(
+                                (id: number) => genreMap[id] || 'Unknown',
+                            ),
+                            description: movie.overview || '',
+                            releaseYear: movie.release_date
+                                ? new Date(movie.release_date).getFullYear()
+                                : new Date().getFullYear(),
+                            duration: movie.runtime || 0,
+                            interpreter: undefined,
+                            trailer: undefined,
+                            poster_file_path: undefined,
+                            movie_file_path: undefined,
+                            category: 'api',
+                        }),
+                    );
+
+                    setGlobalSearchResults(transformed);
+                }
+            } catch (error) {
+                console.error('Global search error:', error);
+            } finally {
+                setIsGlobalSearching(false);
+            }
+        };
+
+        // Debounce search
+        const timeoutId = setTimeout(() => {
+            performGlobalSearch();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [search]);
+
     return (
         <>
+            {isLoading && <LoadingScreen />}
             <Head title="Izisobanuye - Interpreted Movies" />
 
             {/* Professional Navbar */}
@@ -520,10 +612,39 @@ export default function Izisobanuye({ movies, hero }: Props) {
 
                         {/* Izisobanuye Movies by Genre */}
                         {search.trim() ? (
-                            <MovieRow
-                                title="Search Results"
-                                movies={displayMovies}
-                            />
+                            isGlobalSearching ? (
+                                <div className="py-12 text-center">
+                                    <div className="mb-4 text-6xl">🔍</div>
+                                    <h3 className="mb-2 text-xl font-semibold text-white">
+                                        Searching...
+                                    </h3>
+                                    <p className="text-gray-400">
+                                        Searching for "{search}" in all movies...
+                                    </p>
+                                </div>
+                            ) : globalSearchResults.length > 0 ? (
+                                <MovieRow
+                                    title={`Search Results for "${search}"`}
+                                    movies={globalSearchResults}
+                                />
+                            ) : displayMovies.length > 0 ? (
+                                <MovieRow
+                                    title="Search Results"
+                                    movies={displayMovies}
+                                />
+                            ) : (
+                                <div className="py-12 text-center">
+                                    <div className="mb-4 text-6xl">🎬</div>
+                                    <h3 className="mb-2 text-xl font-semibold text-white">
+                                        No movie found
+                                    </h3>
+                                    <p className="text-gray-400">
+                                        We couldn't find any movies matching "
+                                        {search}". Please try a different search
+                                        term.
+                                    </p>
+                                </div>
+                            )
                         ) : (
                             Object.entries(moviesByGenre).map(
                                 ([genre, genreMovies]) => (
@@ -544,6 +665,17 @@ export default function Izisobanuye({ movies, hero }: Props) {
                         <p className="text-gray-400">
                             © {new Date().getFullYear()} streaminga. All rights
                             reserved.
+                        </p>
+                        <p className="mt-2 text-gray-400">
+                            Munyakazi (INTARE) created this website.{' '}
+                            <a
+                                href="https://munyakazi.vercel.app"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-red-500 hover:text-red-400"
+                            >
+                                View Portfolio
+                            </a>
                         </p>
                     </div>
                 </footer>
@@ -577,9 +709,29 @@ function MovieRow({ title, movies }: { title: string; movies: Movie[] }) {
                     ref={scrollRef}
                     className="flex gap-0 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
-                    {movies.map((movie) => (
-                        <MovieCard key={movie.id} movie={movie} />
+                    {movies.map((movie, index) => (
+                        <MovieCard key={`${movie.id}-${index}`} movie={movie} />
                     ))}
+
+                    {/* See More Card */}
+                    <div
+                        className="ml-3 flex h-[300px] w-[150px] flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-600 bg-gray-800/50 transition-all hover:border-red-500 hover:bg-gray-800 sm:h-[400px] sm:w-[200px]"
+                        onClick={() => {
+                            // Map genre to URL slug
+                            const genre = title
+                                .replace(' Movies', '')
+                                .toLowerCase();
+                            window.location.href = `/category/${genre}`;
+                        }}
+                    >
+                        <div className="text-center">
+                            <div className="mb-2 text-4xl text-gray-400">→</div>
+                            <div className="text-sm font-semibold text-gray-300">
+                                See more
+                            </div>
+                            <div className="text-xs text-gray-500">{title}</div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Scroll Buttons */}

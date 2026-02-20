@@ -1,159 +1,255 @@
-import { Head } from '@inertiajs/react';
 import { AdminSidebar } from '@/components/admin-sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Head } from '@inertiajs/react';
 import {
-    Users,
-    UserCheck,
-    TrendingUp,
-    TrendingDown,
-    Eye,
-    Star,
-    MessageSquare,
-    Calendar,
-    Globe,
-    Smartphone,
-    Monitor,
-    Clock,
-    Play,
-    Film,
-    DollarSign,
     BarChart3,
-    PieChart
+    Clock,
+    DollarSign,
+    Eye,
+    Film,
+    Globe,
+    MessageSquare,
+    Star,
+    TrendingUp,
+    Users,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
-// Mock data for analytics
-const analyticsData = {
-    userStats: {
-        totalUsers: 12540,
-        activeSubscribers: 8750,
-        newSubscribersWeek: 245,
-        newSubscribersMonth: 892,
-        churnRate: 3.2
-    },
-    moviePerformance: {
-        topMovies: [
-            { title: 'Inception', views: 45230, rating: 8.8, comments: 1247 },
-            { title: 'The Dark Knight', views: 42150, rating: 9.0, comments: 1156 },
-            { title: 'Interstellar', views: 38920, rating: 8.6, comments: 987 },
-            { title: 'The Matrix', views: 35680, rating: 8.7, comments: 892 },
-            { title: 'Pulp Fiction', views: 33450, rating: 8.9, comments: 756 }
-        ],
-        averageRating: 8.4,
-        totalComments: 15642,
-        recentMovies: [
-            { title: 'Dune: Part Two', releaseDate: '2024-03-01', views: 12500 },
-            { title: 'Oppenheimer', releaseDate: '2023-07-21', views: 18750 },
-            { title: 'Barbie', releaseDate: '2023-07-21', views: 22100 }
-        ]
-    },
-    trafficInsights: {
-        totalVisits: 892340,
-        dau: 12450,
-        wau: 45670,
-        topLocations: [
-            { country: 'United States', percentage: 34.2 },
-            { country: 'United Kingdom', percentage: 18.7 },
-            { country: 'Canada', percentage: 12.3 }
-        ],
-        deviceUsage: {
-            mobile: 68.5,
-            desktop: 31.5
-        }
-    },
-    engagementMetrics: {
-        avgWatchTime: '2h 34m',
-        trailerViews: 45620,
-        fullMoviePlays: 234560,
-        totalLikes: 89234,
-        totalComments: 15642
-    },
-    financialMetrics: {
-        totalRevenue: 245670,
-        revenueByPlan: {
-            weekly: 15640,
-            monthly: 89230,
-            yearly: 140800
-        },
-        growthData: [
-            { month: 'Jan', revenue: 18500 },
-            { month: 'Feb', revenue: 22100 },
-            { month: 'Mar', revenue: 19800 },
-            { month: 'Apr', revenue: 25600 },
-            { month: 'May', revenue: 28900 },
-            { month: 'Jun', revenue: 31200 }
-        ]
-    }
-};
+interface ReportsData {
+    movies: {
+        total_movies: number;
+        new_this_month: number;
+        most_viewed: string;
+        avg_rating: number;
+        movies_by_genre: { genre: string; count: number; percentage: number }[];
+        most_viewed_movies: { title: string; views: string; rating: number }[];
+        highest_rated_movies: {
+            title: string;
+            rating: number;
+            votes: string;
+        }[];
+    };
+    users: {
+        total_users: number;
+        active_users: number;
+        new_this_month: number;
+        avg_watch_time: string;
+        user_activity: {
+            active: { count: number; percentage: number };
+            inactive: { count: number; percentage: number };
+            dormant: { count: number; percentage: number };
+        };
+        subscription_overview: {
+            active: number;
+            expired: number;
+            canceled: number;
+            free_trial: number;
+        };
+        top_users: { name: string; watchTime: string; movies: number }[];
+    };
+    subscription: {
+        monthly_revenue: number;
+        new_subscriptions: number;
+        renewals: number;
+        cancellations: number;
+    };
+    engagement: {
+        total_comments: number;
+        comments_this_month: number;
+        most_commented_movie: string;
+        flagged_comments: number;
+        most_commented_movies: {
+            title: string;
+            comments: number;
+            engagement: string;
+        }[];
+        comment_status: {
+            approved: number;
+            pending: number;
+            flagged: number;
+            admin_replies: number;
+        };
+    };
+    system: {
+        system_uptime: number;
+        storage_used: string;
+        error_rate: number;
+        avg_response_time: number;
+    };
+}
 
 export default function AdminAnalytics() {
+    const [reportsData, setReportsData] = useState<ReportsData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [timeRange, setTimeRange] = useState('30d');
+
+    useEffect(() => {
+        fetchReportsData();
+    }, [timeRange]);
+
+    const fetchReportsData = async () => {
+        setLoading(true);
+        try {
+            const response = await fetch(
+                `/admin/api/reports-data?time_range=${timeRange}`,
+            );
+            const data = await response.json();
+            setReportsData(data);
+        } catch (error) {
+            console.error('Error fetching reports data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <>
+                <Head title="Analytics Dashboard" />
+                <AdminSidebar />
+                <div className="flex min-h-screen items-center justify-center bg-gray-900 p-8 text-white lg:ml-64">
+                    <div className="text-xl">Loading analytics data...</div>
+                </div>
+            </>
+        );
+    }
+
+    if (!reportsData) {
+        return (
+            <>
+                <Head title="Analytics Dashboard" />
+                <AdminSidebar />
+                <div className="flex min-h-screen items-center justify-center bg-gray-900 p-8 text-white lg:ml-64">
+                    <div className="text-xl">Failed to load analytics data</div>
+                </div>
+            </>
+        );
+    }
+
     return (
         <>
             <Head title="Analytics Dashboard" />
 
             <AdminSidebar />
 
-            <div className="min-h-screen bg-gray-900 text-white lg:ml-64 p-8">
+            <div className="min-h-screen bg-gray-900 p-8 text-white lg:ml-64">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
-                    <p className="text-gray-400 mt-2">Comprehensive insights into your streaming platform</p>
+                    <div className="mb-4 flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold">
+                                Analytics Dashboard
+                            </h1>
+                            <p className="mt-2 text-gray-400">
+                                Comprehensive insights into your streaming
+                                platform
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            {['7d', '30d', '90d', '1y'].map((range) => (
+                                <button
+                                    key={range}
+                                    onClick={() => setTimeRange(range)}
+                                    className={`rounded px-4 py-2 ${
+                                        timeRange === range
+                                            ? 'bg-red-600 text-white'
+                                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                    }`}
+                                >
+                                    {range === '7d'
+                                        ? '7 Days'
+                                        : range === '30d'
+                                          ? '30 Days'
+                                          : range === '90d'
+                                            ? '90 Days'
+                                            : '1 Year'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
                 {/* User & Subscriber Stats */}
                 <div className="mb-8">
-                    <h2 className="text-2xl font-bold mb-6 flex items-center">
+                    <h2 className="mb-6 flex items-center text-2xl font-bold">
                         <Users className="mr-3 h-6 w-6" />
                         User & Subscriber Statistics
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <Card className="bg-gray-800 border-gray-700">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400">Total Users</CardTitle>
+                                <CardTitle className="text-sm font-medium text-gray-400">
+                                    Total Users
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-3xl font-bold">{analyticsData.userStats.totalUsers.toLocaleString()}</div>
-                                <div className="flex items-center text-sm text-green-400 mt-1">
-                                    <TrendingUp className="h-4 w-4 mr-1" />
-                                    +12.5% from last month
+                                <div className="text-3xl font-bold">
+                                    {reportsData.users.total_users.toLocaleString()}
+                                </div>
+                                <div className="mt-1 flex items-center text-sm text-green-400">
+                                    <TrendingUp className="mr-1 h-4 w-4" />
+                                    {reportsData.users.new_this_month} new this
+                                    month
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gray-800 border-gray-700">
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400">Active Subscribers</CardTitle>
+                                <CardTitle className="text-sm font-medium text-gray-400">
+                                    Active Subscribers
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-3xl font-bold">{analyticsData.userStats.activeSubscribers.toLocaleString()}</div>
-                                <div className="flex items-center text-sm text-green-400 mt-1">
-                                    <TrendingUp className="h-4 w-4 mr-1" />
-                                    +8.3% from last month
+                                <div className="text-3xl font-bold">
+                                    {reportsData.users.subscription_overview.active.toLocaleString()}
+                                </div>
+                                <div className="mt-1 flex items-center text-sm text-gray-400">
+                                    {
+                                        reportsData.users.subscription_overview
+                                            .expired
+                                    }{' '}
+                                    expired,{' '}
+                                    {
+                                        reportsData.users.subscription_overview
+                                            .canceled
+                                    }{' '}
+                                    canceled
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gray-800 border-gray-700">
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400">New This Week</CardTitle>
+                                <CardTitle className="text-sm font-medium text-gray-400">
+                                    Active Users
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-3xl font-bold">{analyticsData.userStats.newSubscribersWeek.toLocaleString()}</div>
-                                <div className="flex items-center text-sm text-green-400 mt-1">
-                                    <TrendingUp className="h-4 w-4 mr-1" />
-                                    +15.2% from last week
+                                <div className="text-3xl font-bold">
+                                    {reportsData.users.active_users.toLocaleString()}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    {
+                                        reportsData.users.user_activity.active
+                                            .percentage
+                                    }
+                                    % of total
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gray-800 border-gray-700">
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400">Churn Rate</CardTitle>
+                                <CardTitle className="text-sm font-medium text-gray-400">
+                                    Free Trials
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-3xl font-bold">{analyticsData.userStats.churnRate}%</div>
-                                <div className="flex items-center text-sm text-red-400 mt-1">
-                                    <TrendingDown className="h-4 w-4 mr-1" />
-                                    -0.5% from last month
+                                <div className="text-3xl font-bold">
+                                    {reportsData.users.subscription_overview.free_trial.toLocaleString()}
+                                </div>
+                                <div className="mt-1 text-sm text-blue-400">
+                                    Trial users
                                 </div>
                             </CardContent>
                         </Card>
@@ -162,12 +258,30 @@ export default function AdminAnalytics() {
 
                 {/* Movie Performance */}
                 <div className="mb-8">
-                    <h2 className="text-2xl font-bold mb-6 flex items-center">
+                    <h2 className="mb-6 flex items-center text-2xl font-bold">
                         <Film className="mr-3 h-6 w-6" />
                         Movie Performance
                     </h2>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                        <Card className="bg-gray-800 border-gray-700">
+                    <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-4">
+                        <Card className="border-gray-700 bg-gray-800">
+                            <CardHeader>
+                                <CardTitle className="flex items-center">
+                                    <Film className="mr-2 h-5 w-5" />
+                                    Total Movies
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-4xl font-bold">
+                                    {reportsData.movies.total_movies}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    {reportsData.movies.new_this_month} new this
+                                    month
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader>
                                 <CardTitle className="flex items-center">
                                     <Star className="mr-2 h-5 w-5" />
@@ -175,12 +289,33 @@ export default function AdminAnalytics() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-4xl font-bold">{analyticsData.moviePerformance.averageRating}</div>
-                                <div className="text-sm text-gray-400 mt-1">Across all movies</div>
+                                <div className="text-4xl font-bold">
+                                    {reportsData.movies.avg_rating}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    Across all movies
+                                </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gray-800 border-gray-700">
+                        <Card className="border-gray-700 bg-gray-800">
+                            <CardHeader>
+                                <CardTitle className="flex items-center">
+                                    <Eye className="mr-2 h-5 w-5" />
+                                    Most Viewed
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="truncate text-xl font-bold">
+                                    {reportsData.movies.most_viewed || 'N/A'}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    Top performing
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader>
                                 <CardTitle className="flex items-center">
                                     <MessageSquare className="mr-2 h-5 w-5" />
@@ -188,158 +323,162 @@ export default function AdminAnalytics() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-4xl font-bold">{analyticsData.moviePerformance.totalComments.toLocaleString()}</div>
-                                <div className="text-sm text-gray-400 mt-1">User reviews & discussions</div>
+                                <div className="text-4xl font-bold">
+                                    {reportsData.engagement.total_comments.toLocaleString()}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    User reviews
+                                </div>
                             </CardContent>
                         </Card>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="bg-gray-800 border-gray-700">
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader>
                                 <CardTitle>Top 5 Most Viewed Movies</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {analyticsData.moviePerformance.topMovies.map((movie, index) => (
-                                        <div key={movie.title} className="flex items-center justify-between">
-                                            <div className="flex items-center space-x-3">
-                                                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-sm font-bold">
-                                                    {index + 1}
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium">{movie.title}</div>
-                                                    <div className="text-sm text-gray-400 flex items-center space-x-2">
-                                                        <Eye className="h-3 w-3" />
-                                                        <span>{movie.views.toLocaleString()}</span>
-                                                        <Star className="h-3 w-3 ml-2" />
-                                                        <span>{movie.rating}</span>
+                                    {reportsData.movies.most_viewed_movies &&
+                                    reportsData.movies.most_viewed_movies
+                                        .length > 0 ? (
+                                        reportsData.movies.most_viewed_movies.map(
+                                            (movie, index) => (
+                                                <div
+                                                    key={movie.title}
+                                                    className="flex items-center justify-between"
+                                                >
+                                                    <div className="flex items-center space-x-3">
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-sm font-bold">
+                                                            {index + 1}
+                                                        </div>
+                                                        <div>
+                                                            <div className="max-w-[200px] truncate font-medium">
+                                                                {movie.title}
+                                                            </div>
+                                                            <div className="flex items-center space-x-2 text-sm text-gray-400">
+                                                                <Eye className="h-3 w-3" />
+                                                                <span>
+                                                                    {
+                                                                        movie.views
+                                                                    }
+                                                                </span>
+                                                                <Star className="ml-2 h-3 w-3" />
+                                                                <span>
+                                                                    {
+                                                                        movie.rating
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <Badge variant="secondary" className="bg-gray-700">
-                                                {movie.comments} comments
-                                            </Badge>
-                                        </div>
-                                    ))}
+                                            ),
+                                        )
+                                    ) : (
+                                        <p className="text-gray-400">
+                                            No movie data available
+                                        </p>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gray-800 border-gray-700">
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader>
-                                <CardTitle>Recently Added Movies</CardTitle>
+                                <CardTitle>
+                                    Top 5 Highest Rated Movies
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {analyticsData.moviePerformance.recentMovies.map((movie) => (
-                                        <div key={movie.title} className="flex items-center justify-between">
-                                            <div>
-                                                <div className="font-medium">{movie.title}</div>
-                                                <div className="text-sm text-gray-400 flex items-center space-x-2">
-                                                    <Calendar className="h-3 w-3" />
-                                                    <span>{movie.releaseDate}</span>
+                                    {reportsData.movies.highest_rated_movies &&
+                                    reportsData.movies.highest_rated_movies
+                                        .length > 0 ? (
+                                        reportsData.movies.highest_rated_movies.map(
+                                            (movie, index) => (
+                                                <div
+                                                    key={movie.title}
+                                                    className="flex items-center justify-between"
+                                                >
+                                                    <div className="flex items-center space-x-3">
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-600 text-sm font-bold">
+                                                            {index + 1}
+                                                        </div>
+                                                        <div>
+                                                            <div className="max-w-[200px] truncate font-medium">
+                                                                {movie.title}
+                                                            </div>
+                                                            <div className="flex items-center space-x-2 text-sm text-gray-400">
+                                                                <Star className="h-3 w-3 text-yellow-400" />
+                                                                <span>
+                                                                    {
+                                                                        movie.rating
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-medium">{movie.views.toLocaleString()}</div>
-                                                <div className="text-sm text-gray-400">views</div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                            ),
+                                        )
+                                    ) : (
+                                        <p className="text-gray-400">
+                                            No movie data available
+                                        </p>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
                 </div>
 
-                {/* Traffic Insights */}
+                {/* Movies by Genre */}
                 <div className="mb-8">
-                    <h2 className="text-2xl font-bold mb-6 flex items-center">
-                        <Globe className="mr-3 h-6 w-6" />
-                        Traffic Insights
+                    <h2 className="mb-6 flex items-center text-2xl font-bold">
+                        <BarChart3 className="mr-3 h-6 w-6" />
+                        Movies by Genre
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                        <Card className="bg-gray-800 border-gray-700">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400">Total Visits</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-bold">{analyticsData.trafficInsights.totalVisits.toLocaleString()}</div>
-                                <div className="text-sm text-green-400 mt-1">+18.7% from last month</div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-gray-800 border-gray-700">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400">Daily Active Users</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-bold">{analyticsData.trafficInsights.dau.toLocaleString()}</div>
-                                <div className="text-sm text-green-400 mt-1">+5.2% from yesterday</div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-gray-800 border-gray-700">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400">Weekly Active Users</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-bold">{analyticsData.trafficInsights.wau.toLocaleString()}</div>
-                                <div className="text-sm text-green-400 mt-1">+12.1% from last week</div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-gray-800 border-gray-700">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400">Device Usage</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-2">
-                                            <Smartphone className="h-4 w-4" />
-                                            <span className="text-sm">Mobile</span>
-                                        </div>
-                                        <span className="font-medium">{analyticsData.trafficInsights.deviceUsage.mobile}%</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-2">
-                                            <Monitor className="h-4 w-4" />
-                                            <span className="text-sm">Desktop</span>
-                                        </div>
-                                        <span className="font-medium">{analyticsData.trafficInsights.deviceUsage.desktop}%</span>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    <Card className="bg-gray-800 border-gray-700">
-                        <CardHeader>
-                            <CardTitle>Top Locations</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <Card className="border-gray-700 bg-gray-800">
+                        <CardContent className="pt-6">
                             <div className="space-y-4">
-                                {analyticsData.trafficInsights.topLocations.map((location, index) => (
-                                    <div key={location.country} className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold">
-                                                {index + 1}
+                                {reportsData.movies.movies_by_genre &&
+                                reportsData.movies.movies_by_genre.length >
+                                    0 ? (
+                                    reportsData.movies.movies_by_genre.map(
+                                        (genre) => (
+                                            <div
+                                                key={genre.genre}
+                                                className="flex items-center justify-between"
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    <span className="w-32 font-medium">
+                                                        {genre.genre}
+                                                    </span>
+                                                </div>
+                                                <div className="flex max-w-md flex-1 items-center space-x-3">
+                                                    <div className="h-2 w-full rounded-full bg-gray-700">
+                                                        <div
+                                                            className="h-2 rounded-full bg-red-600"
+                                                            style={{
+                                                                width: `${genre.percentage}%`,
+                                                            }}
+                                                        ></div>
+                                                    </div>
+                                                    <span className="w-16 text-sm text-gray-400">
+                                                        {genre.count} (
+                                                        {genre.percentage}%)
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <span className="font-medium">{location.country}</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="font-medium">{location.percentage}%</div>
-                                            <div className="w-24 bg-gray-700 rounded-full h-2">
-                                                <div
-                                                    className="bg-blue-600 h-2 rounded-full"
-                                                    style={{ width: `${location.percentage}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                        ),
+                                    )
+                                ) : (
+                                    <p className="text-gray-400">
+                                        No genre data available
+                                    </p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -347,60 +486,102 @@ export default function AdminAnalytics() {
 
                 {/* Engagement Metrics */}
                 <div className="mb-8">
-                    <h2 className="text-2xl font-bold mb-6 flex items-center">
+                    <h2 className="mb-6 flex items-center text-2xl font-bold">
                         <BarChart3 className="mr-3 h-6 w-6" />
                         Engagement Metrics
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <Card className="bg-gray-800 border-gray-700">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400 flex items-center">
+                                <CardTitle className="flex items-center text-sm font-medium text-gray-400">
                                     <Clock className="mr-2 h-4 w-4" />
                                     Avg Watch Time
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-3xl font-bold">{analyticsData.engagementMetrics.avgWatchTime}</div>
-                                <div className="text-sm text-gray-400 mt-1">Per user session</div>
+                                <div className="text-3xl font-bold">
+                                    {reportsData.users.avg_watch_time}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    Per user session
+                                </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gray-800 border-gray-700">
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400 flex items-center">
-                                    <Play className="mr-2 h-4 w-4" />
-                                    Trailer Views
+                                <CardTitle className="flex items-center text-sm font-medium text-gray-400">
+                                    <MessageSquare className="mr-2 h-4 w-4" />
+                                    Comments This Month
                                 </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-bold">{analyticsData.engagementMetrics.trailerViews.toLocaleString()}</div>
-                                <div className="text-sm text-gray-400 mt-1">Total trailer plays</div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-gray-800 border-gray-700">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400 flex items-center">
-                                    <Film className="mr-2 h-4 w-4" />
-                                    Full Movie Plays
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-bold">{analyticsData.engagementMetrics.fullMoviePlays.toLocaleString()}</div>
-                                <div className="text-sm text-gray-400 mt-1">Complete movie views</div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-gray-800 border-gray-700">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400">Total Interactions</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="text-3xl font-bold">
-                                    {(analyticsData.engagementMetrics.totalLikes + analyticsData.engagementMetrics.totalComments).toLocaleString()}
+                                    {reportsData.engagement.comments_this_month.toLocaleString()}
                                 </div>
-                                <div className="text-sm text-gray-400 mt-1">
-                                    {analyticsData.engagementMetrics.totalLikes.toLocaleString()} likes, {analyticsData.engagementMetrics.totalComments.toLocaleString()} comments
+                                <div className="mt-1 text-sm text-gray-400">
+                                    New comments
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-gray-700 bg-gray-800">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-gray-400">
+                                    Flagged Comments
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-3xl font-bold">
+                                    {reportsData.engagement.flagged_comments}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    Need moderation
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-gray-700 bg-gray-800">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-gray-400">
+                                    Comment Status
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-1 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-green-400">
+                                            Approved:
+                                        </span>
+                                        <span>
+                                            {
+                                                reportsData.engagement
+                                                    .comment_status.approved
+                                            }
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-yellow-400">
+                                            Pending:
+                                        </span>
+                                        <span>
+                                            {
+                                                reportsData.engagement
+                                                    .comment_status.pending
+                                            }
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-red-400">
+                                            Flagged:
+                                        </span>
+                                        <span>
+                                            {
+                                                reportsData.engagement
+                                                    .comment_status.flagged
+                                            }
+                                        </span>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -409,66 +590,198 @@ export default function AdminAnalytics() {
 
                 {/* Financial Metrics */}
                 <div className="mb-8">
-                    <h2 className="text-2xl font-bold mb-6 flex items-center">
+                    <h2 className="mb-6 flex items-center text-2xl font-bold">
                         <DollarSign className="mr-3 h-6 w-6" />
                         Financial Overview
                     </h2>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="bg-gray-800 border-gray-700">
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader>
-                                <CardTitle>Total Revenue</CardTitle>
+                                <CardTitle>Monthly Revenue</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-4xl font-bold">${analyticsData.financialMetrics.totalRevenue.toLocaleString()}</div>
-                                <div className="text-sm text-green-400 mt-1">+23.5% from last month</div>
+                                <div className="text-4xl font-bold">
+                                    {reportsData.subscription.monthly_revenue.toLocaleString()}{' '}
+                                    RWF
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    Estimated
+                                </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gray-800 border-gray-700">
+                        <Card className="border-gray-700 bg-gray-800">
                             <CardHeader>
-                                <CardTitle>Revenue by Plan</CardTitle>
+                                <CardTitle>New Subscriptions</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm">Yearly Plan</span>
-                                        <span className="font-medium">${analyticsData.financialMetrics.revenueByPlan.yearly.toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm">Monthly Plan</span>
-                                        <span className="font-medium">${analyticsData.financialMetrics.revenueByPlan.monthly.toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm">Weekly Plan</span>
-                                        <span className="font-medium">${analyticsData.financialMetrics.revenueByPlan.weekly.toLocaleString()}</span>
-                                    </div>
+                                <div className="text-4xl font-bold">
+                                    {reportsData.subscription.new_subscriptions}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    In selected period
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-gray-700 bg-gray-800">
+                            <CardHeader>
+                                <CardTitle>Renewals</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-4xl font-bold">
+                                    {reportsData.subscription.renewals}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    In selected period
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-gray-700 bg-gray-800">
+                            <CardHeader>
+                                <CardTitle>Cancellations</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-4xl font-bold">
+                                    {reportsData.subscription.cancellations}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    In selected period
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
+                </div>
 
-                    <Card className="bg-gray-800 border-gray-700 mt-6">
-                        <CardHeader>
-                            <CardTitle>Revenue Growth (Last 6 Months)</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-end space-x-4 h-32">
-                                {analyticsData.financialMetrics.growthData.map((data, index) => (
-                                    <div key={data.month} className="flex flex-col items-center flex-1">
-                                        <div
-                                            className="bg-red-600 w-full rounded-t"
-                                            style={{
-                                                height: `${(data.revenue / Math.max(...analyticsData.financialMetrics.growthData.map(d => d.revenue))) * 100}%`,
-                                                minHeight: '20px'
-                                            }}
-                                        ></div>
-                                        <div className="text-xs text-gray-400 mt-2">{data.month}</div>
-                                        <div className="text-xs font-medium">${(data.revenue / 1000).toFixed(0)}k</div>
-                                    </div>
-                                ))}
+                {/* Top Users by Watch Time */}
+                <div className="mb-8">
+                    <h2 className="mb-6 flex items-center text-2xl font-bold">
+                        <Users className="mr-3 h-6 w-6" />
+                        Top Users by Watch Time
+                    </h2>
+                    <Card className="border-gray-700 bg-gray-800">
+                        <CardContent className="pt-6">
+                            <div className="space-y-4">
+                                {reportsData.users.top_users &&
+                                reportsData.users.top_users.length > 0 ? (
+                                    reportsData.users.top_users.map(
+                                        (user, index) => (
+                                            <div
+                                                key={index}
+                                                className="flex items-center justify-between"
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    <div
+                                                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+                                                            index === 0
+                                                                ? 'bg-yellow-600'
+                                                                : index === 1
+                                                                  ? 'bg-gray-400'
+                                                                  : index === 2
+                                                                    ? 'bg-orange-600'
+                                                                    : 'bg-gray-700'
+                                                        }`}
+                                                    >
+                                                        {index + 1}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-medium">
+                                                            {user.name}
+                                                        </div>
+                                                        <div className="text-sm text-gray-400">
+                                                            {user.movies} movies
+                                                            watched
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-lg font-bold">
+                                                    {user.watchTime}
+                                                </div>
+                                            </div>
+                                        ),
+                                    )
+                                ) : (
+                                    <p className="text-gray-400">
+                                        No user watch data available
+                                    </p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
+                </div>
+
+                {/* System Stats */}
+                <div className="mb-8">
+                    <h2 className="mb-6 flex items-center text-2xl font-bold">
+                        <Globe className="mr-3 h-6 w-6" />
+                        System Status
+                    </h2>
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
+                        <Card className="border-gray-700 bg-gray-800">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-gray-400">
+                                    System Uptime
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-3xl font-bold">
+                                    {reportsData.system.system_uptime}%
+                                </div>
+                                <div className="mt-1 text-sm text-green-400">
+                                    Operational
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-gray-700 bg-gray-800">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-gray-400">
+                                    Storage Used
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-3xl font-bold">
+                                    {reportsData.system.storage_used}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    Total storage
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-gray-700 bg-gray-800">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-gray-400">
+                                    Error Rate
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-3xl font-bold">
+                                    {reportsData.system.error_rate}%
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    Last 24 hours
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-gray-700 bg-gray-800">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-gray-400">
+                                    Avg Response
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-3xl font-bold">
+                                    {reportsData.system.avg_response_time}ms
+                                </div>
+                                <div className="mt-1 text-sm text-gray-400">
+                                    Response time
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             </div>
         </>

@@ -1,6 +1,8 @@
 import NotificationBell from '@/components/notification-bell';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Link, usePage, router } from '@inertiajs/react';
+import axios from 'axios';
 import {
     BarChart3,
     Bell,
@@ -13,6 +15,7 @@ import {
     LogOut,
     Menu,
     MessageSquare,
+    Search,
     Settings,
     Shield,
     TrendingUp,
@@ -20,7 +23,7 @@ import {
     Users,
     X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 type NavItem = {
     href?: string;
     label: string;
@@ -117,12 +120,28 @@ export function AdminSidebar() {
     const [untranslatedMoviesCount, setUntranslatedMoviesCount] = useState(0);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [csrfToken, setCsrfToken] = useState('');
+    
+    // Global search state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showResults, setShowResults] = useState(false);
+    const searchRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         fetchCounts();
         // Get CSRF token
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
         setCsrfToken(token);
+        
+        // Click outside to close search results
+        const handleClickOutside = (event: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+                setShowResults(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const fetchCounts = async () => {
@@ -148,6 +167,76 @@ export function AdminSidebar() {
         } catch (error) {
             console.error('Error fetching sidebar counts:', error);
         }
+    };
+
+    // Global search using TMDB API
+    useEffect(() => {
+        const performSearch = async () => {
+            if (!searchQuery.trim()) {
+                setSearchResults([]);
+                setIsSearching(false);
+                return;
+            }
+
+            setIsSearching(true);
+            
+            try {
+                const response = await axios.get('/api/movies/search', {
+                    params: { q: searchQuery }
+                });
+
+                if (response.data && response.data.results) {
+                    const genreMap: { [key: number]: string } = {
+                        28: 'Action',
+                        27: 'Horror',
+                        35: 'Comedy',
+                        18: 'Drama',
+                        10749: 'Romance',
+                        16: 'Animation',
+                        53: 'Thriller',
+                        878: 'Sci-Fi',
+                        80: 'Crime',
+                        12: 'Adventure',
+                        14: 'Fantasy',
+                        10751: 'Family',
+                    };
+
+                    const results = response.data.results.slice(0, 8).map((movie: any) => ({
+                        id: movie.id,
+                        title: movie.title,
+                        poster: movie.poster_path
+                            ? `https://image.tmdb.org/t/p/w92${movie.poster_path}`
+                            : null,
+                        year: movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A',
+                        genre: (movie.genre_ids || []).slice(0, 2).map((id: number) => genreMap[id] || 'Other').join(', '),
+                    }));
+
+                    setSearchResults(results);
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+            } finally {
+                setIsSearching(false);
+            }
+        };
+
+        const timeoutId = setTimeout(() => {
+            performSearch();
+        }, 400);
+
+        return () => clearTimeout(timeoutId);
+    }, [searchQuery]);
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchQuery(e.target.value);
+        setShowResults(true);
+    };
+
+    const handleMovieClick = (movieId: number) => {
+        setShowResults(false);
+        setSearchQuery('');
+        // Navigate to the movie detail page
+        window.location.href = `/movies/${movieId}`;
     };
 
     const toggleExpanded = (label: string) => {
@@ -214,6 +303,66 @@ export function AdminSidebar() {
                             </p>
                         </div>
                         <NotificationBell />
+                    </div>
+                    
+                    {/* Global Search */}
+                    <div ref={searchRef} className="mt-4 relative">
+                        <div className="relative">
+                            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                                type="text"
+                                placeholder="Search movies..."
+                                value={searchQuery}
+                                onChange={handleSearchChange}
+                                onFocus={() => setShowResults(true)}
+                                className="w-full rounded-lg border-gray-700 bg-gray-800 py-2 pl-10 pr-4 text-sm text-white placeholder-gray-400 focus:border-red-500 focus:ring-red-500"
+                            />
+                        </div>
+                        
+                        {/* Search Results Dropdown */}
+                        {showResults && searchQuery.trim() && (
+                            <div className="absolute z-50 mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 shadow-lg max-h-80 overflow-y-auto">
+                                {isSearching ? (
+                                    <div className="p-3 text-sm text-gray-400 text-center">
+                                        Searching...
+                                    </div>
+                                ) : searchResults.length > 0 ? (
+                                    <div className="py-1">
+                                        {searchResults.map((movie) => (
+                                            <button
+                                                key={movie.id}
+                                                onClick={() => handleMovieClick(movie.id)}
+                                                className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-700"
+                                            >
+                                                {movie.poster ? (
+                                                    <img
+                                                        src={movie.poster}
+                                                        alt={movie.title}
+                                                        className="h-10 w-7 flex-shrink-0 rounded object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="h-10 w-7 flex-shrink-0 rounded bg-gray-600 flex items-center justify-center">
+                                                        <Film className="h-4 w-4 text-gray-400" />
+                                                    </div>
+                                                )}
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-medium text-white truncate">
+                                                        {movie.title}
+                                                    </p>
+                                                    <p className="text-xs text-gray-400">
+                                                        {movie.year} • {movie.genre}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-3 text-sm text-gray-400 text-center">
+                                        No movies found
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
                 <nav className="space-y-1 px-4">
