@@ -106,6 +106,95 @@ class MovieController extends Controller
         return $this->getMoviesByGenre(10749);
     }
 
+    public function watch($id)
+    {
+        // First, try to get izisobanuye movie from database
+        $izisobanuyeMovie = IzisobanuyeMovie::find($id);
+
+        if ($izisobanuyeMovie) {
+            // This is an izisobanuye movie
+            $movie = [
+                'id' => $izisobanuyeMovie->id,
+                'title' => $izisobanuyeMovie->title,
+                'poster' => $izisobanuyeMovie->poster_file_path ?: ($izisobanuyeMovie->poster_path ? 'https://image.tmdb.org/t/p/w500' . $izisobanuyeMovie->poster_path : '/Images/default-movie.jpg'),
+                'rating' => $izisobanuyeMovie->rating,
+                'genre' => $izisobanuyeMovie->genres ?? [],
+                'description' => $izisobanuyeMovie->description,
+                'releaseYear' => $izisobanuyeMovie->release_year,
+                'duration' => $izisobanuyeMovie->duration,
+                'interpreter' => $izisobanuyeMovie->interpreter,
+                'trailer' => $izisobanuyeMovie->trailer_url,
+                'poster_file_path' => $izisobanuyeMovie->poster_file_path,
+                'movie_file_path' => $izisobanuyeMovie->movie_file_path,
+            ];
+
+            return Inertia::render('watch-movie', ['movie' => $movie]);
+        }
+
+        // Then, try to get movie from database (for TMDB movies)
+        $movieRecord = Movie::where('tmdb_id', $id)->first();
+
+        if ($movieRecord) {
+            // This is a TMDB movie stored in database
+            $movie = [
+                'id' => $movieRecord->tmdb_id,
+                'title' => $movieRecord->title,
+                'poster' => $movieRecord->poster_file_path ?: ($movieRecord->poster_path ? 'https://image.tmdb.org/t/p/w500' . $movieRecord->poster_path : '/Images/default-movie.jpg'),
+                'rating' => $movieRecord->rating,
+                'genre' => $movieRecord->genres ?? [],
+                'description' => $movieRecord->description,
+                'releaseYear' => $movieRecord->release_year,
+                'duration' => $movieRecord->duration,
+                'interpreter' => $movieRecord->interpreter,
+                'trailer' => $movieRecord->trailer_url,
+                'poster_file_path' => $movieRecord->poster_file_path,
+                'movie_file_path' => $movieRecord->movie_file_path,
+            ];
+
+            return Inertia::render('watch-movie', ['movie' => $movie]);
+        }
+
+        // If not in database, try to fetch from TMDB API and store in database
+        $cacheKey = "tmdb_movie_details_{$id}";
+        $movieData = Cache::remember($cacheKey, 3600, function () use ($id) {
+            $apiKey = config('services.tmdb.key');
+            $response = Http::get("https://api.themoviedb.org/3/movie/{$id}", [
+                'api_key' => $apiKey,
+                'append_to_response' => 'credits,videos',
+            ]);
+
+            return $response->successful() ? $response->json() : null;
+        });
+
+        if ($movieData) {
+            $videos = $movieData['videos']['results'] ?? [];
+            $trailer = collect($videos)->where('type', 'Trailer')->where('site', 'YouTube')->first();
+            $trailerUrl = $trailer ? 'https://www.youtube.com/watch?v=' . $trailer['key'] : null;
+
+            $movie = [
+                'id' => $movieData['id'],
+                'title' => $movieData['title'],
+                'poster' => $movieData['poster_path'] ? 'https://image.tmdb.org/t/p/w500' . $movieData['poster_path'] : '/Images/default-movie.jpg',
+                'rating' => $movieData['vote_average'],
+                'genre' => collect($movieData['genres'])->pluck('name')->toArray(),
+                'description' => $movieData['overview'],
+                'releaseYear' => $movieData['release_date'] ? date('Y', strtotime($movieData['release_date'])) : null,
+                'duration' => $movieData['runtime'],
+                'interpreter' => collect($movieData['credits']['crew'] ?? [])->where('job', 'Director')->pluck('name')->first() ?? 'Unknown',
+                'trailer' => $trailerUrl,
+            ];
+
+            // Store movie in database asynchronously for faster future access
+            dispatch(function () use ($id) {
+                $this->storeMovieFromTMDB($id);
+            })->afterResponse();
+
+            return Inertia::render('watch-movie', ['movie' => $movie]);
+        }
+
+        abort(404);
+    }
+
     public function details($id)
     {
         // First, try to get izisobanuye movie from database

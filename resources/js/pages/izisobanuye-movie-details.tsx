@@ -399,18 +399,7 @@ export default function IzisobanuyeMovieDetails({ movie }: Props) {
                         <div className="mx-auto flex max-w-sm flex-col justify-center gap-3 px-6 sm:max-w-md sm:flex-row sm:gap-4 sm:px-8">
                             <Button
                                 className="w-full min-w-0 bg-red-600 px-4 py-3 text-sm text-white transition-all duration-200 hover:bg-red-700 sm:px-6 sm:py-4 sm:text-base"
-                                onClick={() => {
-                                    if (movie.movie_file_path) {
-                                        // Use uploaded movie file
-                                        window.open(`/${movie.movie_file_path}`, '_blank');
-                                    } else {
-                                        // Fallback to external link
-                                        window.open(
-                                            `https://vidsrc.to/embed/movie/${movie.id}`,
-                                            '_blank',
-                                        );
-                                    }
-                                }}
+                                onClick={() => window.location.href = `/watch/${movie.id}`}
                             >
                                 <Play className="mr-2 h-4 w-4 flex-shrink-0 sm:h-5 sm:w-5" />
                                 <span className="truncate">Watch Now</span>

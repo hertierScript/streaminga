@@ -207,6 +207,7 @@ Route::get('/sanctum/csrf-cookie', function () {
     return response()->json(['message' => 'CSRF cookie set']);
 })->middleware('web');
 
+Route::get('watch/{id}', [App\Http\Controllers\MovieController::class, 'watch'])->name('watch');
 Route::get('movies/{id}', [App\Http\Controllers\MovieController::class, 'details'])->name('movies.show');
 Route::get('static-movies/{id}', [App\Http\Controllers\MovieController::class, 'staticMovieDetails'])->name('static-movies.show');
 
