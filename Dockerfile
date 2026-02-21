@@ -21,26 +21,34 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy existing application directory contents
-COPY . /var/www/html
+# Copy package files first for better caching
+COPY package.json package-lock.json* ./
 
-# Copy existing application directory permissions
-COPY --chown=www-data:www-data . /var/www/html
+# Install Node dependencies
+RUN npm ci --production=false
+
+# Copy application files
+COPY --chown=www-data:www-data . .
 
 # Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+RUN composer dump-autoload --optimize
 
-# Install Node dependencies and build frontend
-RUN npm install && npm run build
+# Set environment variables for production build
+ENV VITE_APP_NAME="STREAMINGA"
+ENV NODE_ENV=production
+
+# Build frontend assets
+RUN npm run build
 
 # Clear config and cache
 RUN php artisan config:clear && php artisan cache:clear
 
-# Generate application key
-RUN php artisan key:generate
+# Generate application key (if not set)
+RUN php artisan key:generate --force
 
 # Expose port 10000
 EXPOSE 10000
 
-# Start Laravel server
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
+# Start Apache
+CMD ["apache2-foreground"]
