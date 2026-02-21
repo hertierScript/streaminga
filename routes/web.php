@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -95,56 +96,67 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::get('izisobanuye', function () {
-    $movies = App\Models\IzisobanuyeMovie::where('is_deleted_for_users', false)
-        ->orderBy('created_at', 'desc')
-        ->get()
-        ->map(function ($movie) {
-            return [
-                'id' => $movie->id,
-                'title' => $movie->title,
-                'poster' => $movie->poster_file_path ?: ($movie->poster_path ? 'https://image.tmdb.org/t/p/w500' . $movie->poster_path : '/Images/default-movie.jpg'),
-                'rating' => $movie->rating,
-                'genre' => $movie->genres ?? [],
-                'description' => $movie->description,
-                'releaseYear' => $movie->release_year,
-                'duration' => $movie->duration,
-                'interpreter' => $movie->interpreter,
-                'trailer' => $movie->trailer_url,
-                'poster_file_path' => $movie->poster_file_path,
-                'movie_file_path' => $movie->movie_file_path,
-                'category' => 'izisobanuye',
+    // Cache the izisobanuye page data for 5 minutes
+    $cacheKey = 'izisobanuye_page_data';
+    
+    $data = Cache::remember($cacheKey, 300, function () {
+        $movies = App\Models\IzisobanuyeMovie::where('is_deleted_for_users', false)
+            ->orderBy('created_at', 'desc')
+            ->select(['id', 'title', 'poster_file_path', 'poster_path', 'rating', 'genres', 'description', 'release_year', 'duration', 'interpreter', 'trailer_url', 'movie_file_path'])
+            ->get()
+            ->map(function ($movie) {
+                return [
+                    'id' => $movie->id,
+                    'title' => $movie->title,
+                    'poster' => $movie->poster_file_path ?: ($movie->poster_path ? 'https://image.tmdb.org/t/p/w500' . $movie->poster_path : '/Images/default-movie.jpg'),
+                    'rating' => $movie->rating,
+                    'genre' => $movie->genres ?? [],
+                    'description' => $movie->description,
+                    'releaseYear' => $movie->release_year,
+                    'duration' => $movie->duration,
+                    'interpreter' => $movie->interpreter,
+                    'trailer' => $movie->trailer_url,
+                    'poster_file_path' => $movie->poster_file_path,
+                    'movie_file_path' => $movie->movie_file_path,
+                    'category' => 'izisobanuye',
+                ];
+            });
+
+        $hero = App\Models\Hero::first();
+
+        if ($hero) {
+            $hero = [
+                'id' => 'hero',
+                'title' => $hero->title,
+                'poster' => $hero->poster_path ? '/storage/' . $hero->poster_path : '/Images/default-movie.jpg',
+                'rating' => 0,
+                'genre' => $hero->genre ? [$hero->genre] : [],
+                'description' => $hero->overview,
+                'releaseYear' => $hero->release_year,
+                'duration' => 0,
+                'interpreter' => null,
+                'trailer' => $hero->watch_trailer_url,
+                'poster_file_path' => $hero->poster_path,
+                'movie_file_path' => null,
+                'category' => 'hero',
+                'watch_now_url' => $hero->watch_now_url,
             ];
-        });
+        }
+        
+        return ['movies' => $movies, 'hero' => $hero];
+    });
 
-    $hero = App\Models\Hero::first();
-
-    if ($hero) {
-        $hero = [
-            'id' => 'hero',
-            'title' => $hero->title,
-            'poster' => $hero->poster_path ? '/storage/' . $hero->poster_path : '/Images/default-movie.jpg',
-            'rating' => 0,
-            'genre' => $hero->genre ? [$hero->genre] : [],
-            'description' => $hero->overview,
-            'releaseYear' => $hero->release_year,
-            'duration' => 0,
-            'interpreter' => null,
-            'trailer' => $hero->watch_trailer_url,
-            'poster_file_path' => $hero->poster_path,
-            'movie_file_path' => null,
-            'category' => 'hero',
-            'watch_now_url' => $hero->watch_now_url,
-        ];
-    }
-
-    return Inertia::render('izisobanuye', ['movies' => $movies, 'hero' => $hero]);
+    return Inertia::render('izisobanuye', ['movies' => $data['movies'], 'hero' => $data['hero']]);
 })->name('izisobanuye');
 
 Route::get('api/movies/homepage', [App\Http\Controllers\MovieController::class, 'homepageMovies'])->name('movies.homepage');
 Route::get('api/movies/original', [App\Http\Controllers\MovieController::class, 'originalMovies'])->name('movies.original');
 
 Route::get('izidasobanuye', function () {
-    return Inertia::render('izidasobanuye');
+    // Cache the izidasobanuye page for 5 minutes
+    return Cache::remember('izidasobanuye_page', 300, function () {
+        return Inertia::render('izidasobanuye');
+    });
 })->name('izidasobanuye');
 
 // Category page with movies by genre

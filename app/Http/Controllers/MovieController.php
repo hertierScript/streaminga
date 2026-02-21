@@ -782,8 +782,11 @@ class MovieController extends Controller
     {
         $activities = [];
         
-        // Get recent movie view notifications (real data) - increased to 5
-        $movieViews = MovieViewNotification::orderBy('created_at', 'desc')->take(5)->get();
+        // Get recent movie view notifications (real data) - optimized with select
+        $movieViews = MovieViewNotification::orderBy('created_at', 'desc')
+            ->select(['id', 'movie_title', 'created_at'])
+            ->take(5)
+            ->get();
         foreach ($movieViews as $notification) {
             $activities[] = [
                 'id' => 'view_' . $notification->id,
@@ -795,8 +798,11 @@ class MovieController extends Controller
             ];
         }
         
-        // Get recent user registrations (real data from users table) - increased to 5
-        $recentUsers = \App\Models\User::orderBy('created_at', 'desc')->take(5)->get();
+        // Get recent user registrations (real data from users table) - optimized with select
+        $recentUsers = \App\Models\User::orderBy('created_at', 'desc')
+            ->select(['id', 'name', 'created_at'])
+            ->take(5)
+            ->get();
         foreach ($recentUsers as $user) {
             $activities[] = [
                 'id' => 'user_' . $user->id,
@@ -808,10 +814,11 @@ class MovieController extends Controller
             ];
         }
         
-        // Get recent subscription changes (real data from users table) - increased to 5
+        // Get recent subscription changes (real data from users table) - optimized
         $subscribedUsers = \App\Models\User::where('subscription_status', 'active')
             ->whereNotNull('subscription_start_date')
             ->orderBy('subscription_start_date', 'desc')
+            ->select(['id', 'name', 'subscription_start_date'])
             ->take(5)
             ->get();
         foreach ($subscribedUsers as $user) {
@@ -825,8 +832,11 @@ class MovieController extends Controller
             ];
         }
         
-        // Get recent comments (real data) - increased to 5
-        $recentComments = \App\Models\Comment::orderBy('created_at', 'desc')->take(5)->get();
+        // Get recent comments (real data) - optimized with select
+        $recentComments = \App\Models\Comment::orderBy('created_at', 'desc')
+            ->select(['id', 'movie_id', 'created_at'])
+            ->take(5)
+            ->get();
         foreach ($recentComments as $comment) {
             $activities[] = [
                 'id' => 'comment_' . $comment->id,
@@ -838,8 +848,11 @@ class MovieController extends Controller
             ];
         }
         
-        // Get recent izisobanuye movie uploads - increased to 5
-        $recentIzisobanuyeMovies = \App\Models\IzisobanuyeMovie::orderBy('created_at', 'desc')->take(5)->get();
+        // Get recent izisobanuye movie uploads - optimized with select
+        $recentIzisobanuyeMovies = \App\Models\IzisobanuyeMovie::orderBy('created_at', 'desc')
+            ->select(['id', 'title', 'created_at'])
+            ->take(5)
+            ->get();
         foreach ($recentIzisobanuyeMovies as $movie) {
             $activities[] = [
                 'id' => 'izisobanuye_' . $movie->id,
@@ -859,7 +872,9 @@ class MovieController extends Controller
 
     public function getTopPerformingMovies()
     {
-        $topMovies = Movie::orderBy('view_count', 'desc')
+        $topMovies = Movie::where('is_deleted_for_users', false)
+            ->orderBy('view_count', 'desc')
+            ->select(['id', 'tmdb_id', 'title', 'poster_path', 'rating', 'view_count'])
             ->take(5)
             ->get()
             ->map(function ($movie) {
@@ -879,6 +894,7 @@ class MovieController extends Controller
     {
         $recentMovies = IzisobanuyeMovie::where('is_deleted_for_users', false)
             ->orderBy('created_at', 'desc')
+            ->select(['id', 'title', 'poster_file_path', 'poster_path', 'rating', 'created_at'])
             ->take(5)
             ->get()
             ->map(function ($movie) {
@@ -1060,6 +1076,7 @@ class MovieController extends Controller
         $movies = Movie::where('is_deleted_for_users', false)
             ->whereNotNull('interpreter')
             ->orderBy('created_at', 'desc')
+            ->select(['id', 'tmdb_id', 'title', 'poster_file_path', 'poster_path', 'rating', 'genres', 'description', 'release_year', 'duration', 'interpreter', 'trailer_url', 'movie_file_path'])
             ->get()
             ->map(function ($movie) {
                 return [
@@ -1087,6 +1104,7 @@ class MovieController extends Controller
         $movies = Movie::where('is_deleted_for_users', false)
             ->whereNull('interpreter')
             ->orderBy('created_at', 'desc')
+            ->select(['id', 'tmdb_id', 'title', 'poster_file_path', 'poster_path', 'rating', 'genres', 'description', 'release_year', 'duration', 'interpreter', 'trailer_url', 'movie_file_path'])
             ->get()
             ->map(function ($movie) {
                 return [
@@ -1259,6 +1277,7 @@ class MovieController extends Controller
     {
         $movies = IzisobanuyeMovie::where('is_deleted_for_users', false)
             ->orderBy('created_at', 'desc')
+            ->select(['id', 'title', 'poster_file_path', 'poster_path', 'rating', 'genres', 'description', 'release_year', 'duration', 'interpreter', 'trailer_url', 'movie_file_path'])
             ->get()
             ->map(function ($movie) {
                 return [

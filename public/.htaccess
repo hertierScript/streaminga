@@ -8,6 +8,53 @@ php_value max_input_time 1200
 # Apache request body limit (1GB)
 LimitRequestBody 1073741824
 
+# Enable expires module for caching
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # Images - cache for 1 month
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    
+    # Logo specifically - cache for 1 year (rarely changes)
+    <FilesMatch "^logo\.(png|jpg|svg)$">
+        ExpiresDefault "access plus 1 year"
+    </FilesMatch>
+    
+    # CSS and JavaScript - cache for 1 week
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    
+    # Fonts - cache for 1 month
+    ExpiresByType font/woff "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 month"
+    ExpiresByType application/font-woff "access plus 1 month"
+    
+    # Favicon - cache for 1 month
+    ExpiresByType image/x-icon "access plus 1 month"
+</IfModule>
+
+# Enable headers module for caching
+<IfModule mod_headers.c>
+    # Cache Images folder
+    <Directory "Images">
+        Header set Cache-Control "public, max-age=2592000"
+    </Directory>
+    
+    # Cache logo specifically for 1 year
+    <FilesMatch "^logo\.(png|jpg|svg)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    
+    # Cache favicon
+    <FilesMatch "^favicon\.(ico|svg)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
