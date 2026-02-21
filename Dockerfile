@@ -1,11 +1,8 @@
-# Use official PHP image with extensions for Laravel
-FROM php:8.2-fpm
+# syntax=docker/dockerfile:1
+FROM php:8.2-fpm-alpine
 
-# Set working directory
-WORKDIR /var/www
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies + PHP extensions
+RUN apk add --no-cache \
     git \
     curl \
     zip \
@@ -13,23 +10,51 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     nodejs \
     npm \
-    && docker-php-ext-install pdo_mysql zip
+    && docker-php-ext-install pdo_mysql zip pcntl bcmath \
+    && docker-php-ext-enable pcntl
 
-# Copy composer files and install PHP dependencies
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Set working directory
+WORKDIR /var/www
+
+# Copy dependency files first (better caching)
 COPY composer.json composer.lock ./
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-RUN composer install --no-dev --optimize-autoloader
 
-# Copy the rest of the app
+# Install PHP dependencies without running post-install scripts
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts \
+    --no-progress
+
+# Copy the rest of the application
 COPY . .
 
-# Install Node dependencies and build frontend (Vite)
-RUN npm install
-RUN npm run build
+# Install frontend dependencies and build assets
+RUN npm ci && npm run build -- --no-progress
 
-# Set permissions for Laravel storage and cache
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+# Set proper permissions
+RUN chown -R www-data:www-data \
+    /var/www/storage \
+    /var/www/bootstrap/cache
 
-# Expose port 9000 and start PHP-FPM server
+# Make sure storage/logs is writable
+RUN mkdir -p /var/www/storage/logs \
+    && chown -R www-data:www-data /var/www/storage/logs
+
+# Expose port (for information only – fpm listens on 9000 internally)
 EXPOSE 9000
+
+# Use a simple entrypoint that runs artisan commands safely
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["php-fpm"]
+
+
+
